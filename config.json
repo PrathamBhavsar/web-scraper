@@ -1,0 +1,36 @@
+{
+  "general": {
+    "download_path": "C:\\scraper_downloads\\",
+    "max_storage_gb": 100,
+    "parallel_downloads": 3,
+    "delay_between_requests": 2000,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  },
+  "download": {
+    "download_method": "hybrid",
+    "idm_path": "C:\\Program Files (x86)\\Internet Download Manager\\idman.exe",
+    "max_retries": 3,
+    "timeout_seconds": 30,
+    "chunk_size": 8192,
+    "verify_downloads": true
+  },
+  "scraping": {
+    "start_from_last_page": true,
+    "pages_per_batch": 10,
+    "wait_time_ms": 1500,
+    "max_concurrent_pages": 5,
+    "skip_existing_files": true
+  },
+  "storage": {
+    "create_subdirectories": true,
+    "compress_json": false,
+    "backup_progress": true,
+    "cleanup_incomplete": true
+  },
+  "logging": {
+    "log_level": "INFO",
+    "log_to_file": true,
+    "log_file_path": "scraper.log",
+    "max_log_size_mb": 50
+  }
+}
