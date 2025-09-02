@@ -100,12 +100,16 @@ class Rule34VideoScraper:
         """Load scraping progress"""
         progress_path = Path("progress.json")
         if progress_path.exists():
-            with open(progress_path, 'r') as f:
-                return json.load(f)
+            try:
+                with open(progress_path, 'r') as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError):
+                self.logger.warning("Corrupted progress file, creating new one")
         return {
             "last_video_id": None,
             "last_page": None,
             "total_downloaded": 0,
+            "total_size_mb": 0,
             "downloaded_videos": []
         }
     
@@ -265,118 +269,141 @@ class Rule34VideoScraper:
             self.logger.error(f"Error getting video links from page {page_num}: {e}")
             return []
     
-    def extract_video_info(self, video_url: str):
-            """Extract video information using exact XPaths with fallbacks"""
+    def extract_video_info(self, video_url):
+        """Extract video information using exact XPaths"""
+        try:
+            self.driver.get(video_url)
+            time.sleep(3)
+
+            self.handle_age_verification()
+
+            # Extract video ID from URL
+            video_id_match = re.search(r'/video/(\d+)/', video_url)
+            if video_id_match:
+                video_id = video_id_match.group(1)
+            else:
+                video_id = video_url.split('/')[-2] if video_url.endswith('/') else video_url.split('/')[-1]
+
+            # Initialize video info structure
+            video_info = {
+                "video_id": video_id,
+                "url": video_url,
+                "title": "",
+                "duration": "",
+                "views": "",
+                "uploader": "",
+                "upload_date": "",
+                "tags": [],
+                "video_src": "",
+                "thumbnail_src": ""
+            }
+
+            # Extract title using exact XPath
             try:
-                self.driver.get(video_url)
-                time.sleep(3)
-
-                # Handle age verification if present
-                self.handle_age_verification()
-
-                # Extract video ID
-                video_id_match = re.search(r'/video/(\d+)/', video_url)
-                if video_id_match:
-                    video_id = video_id_match.group(1)
-                else:
-                    video_id = video_url.rstrip("/").split("/")[-1]
-
-                # Initialize info
-                video_info = {
-                    "video_id": video_id,
-                    "url": video_url,
-                    "title": f"Video_{video_id}",
-                    "duration": "",
-                    "views": "",
-                    "uploader": "",
-                    "upload_date": "",
-                    "tags": [],
-                    "video_src": "",
-                    "thumbnail_src": ""
-                }
-
-                # --- Title ---
+                title_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'thumb_title')]")
+                video_info["title"] = title_element.text.strip()
+                self.logger.info(f"Title extracted: {video_info['title']}")
+            except NoSuchElementException:
+                # Fallback to h1 if thumb_title not found on video page
                 try:
-                    title_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'thumb_title')]")
+                    title_element = self.driver.find_element(By.TAG_NAME, "h1")
                     video_info["title"] = title_element.text.strip()
-                except NoSuchElementException:
-                    try:
-                        title_element = self.driver.find_element(By.TAG_NAME, "h1")
-                        video_info["title"] = title_element.text.strip()
-                    except NoSuchElementException:
-                        self.logger.warning(f"No title found, fallback used: {video_info['title']}")
+                except:
+                    video_info["title"] = f"Video_{video_id}"
+                    self.logger.warning(f"Could not extract title, using default: {video_info['title']}")
 
-                # --- Duration ---
-                try:
-                    duration_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'time')]")
-                    video_info["duration"] = duration_element.text.strip()
-                except NoSuchElementException:
-                    self.logger.warning("Could not find duration element")
+            # Extract duration using exact XPath
+            try:
+                duration_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'time')]")
+                video_info["duration"] = duration_element.text.strip()
+                self.logger.info(f"Duration extracted: {video_info['duration']}")
+            except NoSuchElementException:
+                self.logger.warning("Could not find duration element")
 
-                # --- Views ---
-                try:
-                    views_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'views')]")
-                    views_text = views_element.text.strip()
-                    views_match = re.search(r'([\d,\.]+[KMB]?)', views_text)
-                    video_info["views"] = views_match.group(1) if views_match else views_text
-                except NoSuchElementException:
-                    self.logger.warning("Could not find views element")
+            # Extract views using exact XPath
+            try:
+                views_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'views')]")
+                views_text = views_element.text.strip()
+                # Clean up views text (remove "views" word, keep numbers)
+                views_match = re.search(r'([\d,\.]+[KMB]?)', views_text)
+                if views_match:
+                    video_info["views"] = views_match.group(1)
+                else:
+                    video_info["views"] = views_text
+                self.logger.info(f"Views extracted: {video_info['views']}")
+            except NoSuchElementException:
+                self.logger.warning("Could not find views element")
 
-                # --- Tags ---
-                try:
-                    tag_elements = self.driver.find_elements(By.XPATH, "//a[contains(@class, 'tag_item')]")
-                    tags = [t.text.strip() for t in tag_elements if t.text.strip()]
-                    video_info["tags"] = tags
-                except NoSuchElementException:
-                    self.logger.warning("Could not find tags")
+            # Extract tags using exact XPath
+            try:
+                tag_elements = self.driver.find_elements(By.XPATH, "//a[contains(@class, 'tag_item')]")
+                tags = []
+                for tag_element in tag_elements:
+                    tag_text = tag_element.text.strip()
+                    if tag_text:
+                        tags.append(tag_text)
+                video_info["tags"] = tags
+                self.logger.info(f"Tags extracted: {len(tags)} tags - {tags[:5]}")  # Show first 5 tags
+            except NoSuchElementException:
+                self.logger.warning("Could not find tag elements")
 
-                # --- Thumbnail ---
-                try:
-                    thumbnail_element = self.driver.find_element(By.XPATH, "//img[contains(@class, 'thumb')]")
-                    src = thumbnail_element.get_attribute("src")
-                    if src:
-                        video_info["thumbnail_src"] = urljoin(self.base_url, src)
-                except NoSuchElementException:
-                    # Fallback: find any "poster/preview" img
-                    img_elements = self.driver.find_elements(By.TAG_NAME, "img")
-                    for img in img_elements:
-                        src = img.get_attribute("src")
-                        if src and any(x in src.lower() for x in ["thumb", "preview", "poster"]):
-                            video_info["thumbnail_src"] = urljoin(self.base_url, src)
-                            break
+            # Extract thumbnail using exact XPath
+            try:
+                thumbnail_element = self.driver.find_element(By.XPATH, "//img[contains(@class, 'thumb')]")
+                thumbnail_src = thumbnail_element.get_attribute("src")
+                if thumbnail_src:
+                    video_info["thumbnail_src"] = urljoin(self.base_url, thumbnail_src)
+                    self.logger.info(f"Thumbnail extracted: {video_info['thumbnail_src']}")
+            except NoSuchElementException:
+                self.logger.warning("Could not find thumbnail element")
 
-                # --- Video Source ---
+            # Extract video source using exact XPath
+            try:
+                video_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'fp-player')]//video")
+
+                # Try to get source from video element
+                video_src = video_element.get_attribute("src")
+                if not video_src:
+                    # Try source elements within video
+                    source_elements = video_element.find_elements(By.TAG_NAME, "source")
+                    if source_elements:
+                        video_src = source_elements[0].get_attribute("src")
+
+                if video_src:
+                    video_info["video_src"] = video_src if video_src.startswith('http') else urljoin(self.base_url, video_src)
+                    self.logger.info(f"Video source extracted: {video_info['video_src']}")
+                else:
+                    self.logger.warning("Video element found but no source attribute")
+
+            except NoSuchElementException:
+                self.logger.warning("Could not find video player element")
+
+                # Fallback: try to find any video element or MP4 links
                 try:
-                    video_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'fp-player')]//video")
-                    video_src = video_element.get_attribute("src")
-                    if not video_src:
-                        sources = video_element.find_elements(By.TAG_NAME, "source")
-                        if sources:
-                            video_src = sources[0].get_attribute("src")
-                    if video_src:
-                        video_info["video_src"] = video_src if video_src.startswith("http") else urljoin(self.base_url, video_src)
-                except NoSuchElementException:
-                    # Fallback regex search in page source
                     page_source = self.driver.page_source
                     mp4_urls = re.findall(r'https?://[^\s"\'<>]+\.mp4[^\s"\'<>]*', page_source)
                     if mp4_urls:
                         video_info["video_src"] = mp4_urls[0]
+                        self.logger.info(f"Video source found via regex: {video_info['video_src']}")
+                except:
+                    self.logger.error("Could not find video source with any method")
 
-                # --- Log summary ---
-                self.logger.info(f"Extracted info for {video_id}:")
-                self.logger.info(f"  Title: {video_info['title'][:50]}...")
-                self.logger.info(f"  Duration: {video_info['duration']}")
-                self.logger.info(f"  Views: {video_info['views']}")
-                self.logger.info(f"  Tags: {len(video_info['tags'])} found")
-                self.logger.info(f"  Video source: {'Yes' if video_info['video_src'] else 'No'}")
-                self.logger.info(f"  Thumbnail: {'Yes' if video_info['thumbnail_src'] else 'No'}")
+            # Log what we found
+            self.logger.info(f"Extracted info for {video_id}:")
+            self.logger.info(f"  Title: '{video_info['title'][:50]}...'")
+            self.logger.info(f"  Duration: {video_info['duration']}")
+            self.logger.info(f"  Views: {video_info['views']}")
+            self.logger.info(f"  Tags: {len(video_info['tags'])} tags")
+            self.logger.info(f"  Video source: {'Found' if video_info['video_src'] else 'None'}")
+            self.logger.info(f"  Thumbnail: {'Found' if video_info['thumbnail_src'] else 'None'}")
 
-                return video_info
+            return video_info
 
-            except Exception as e:
-                self.logger.error(f"Error extracting video info from {video_url}: {e}")
-                self.logger.error(traceback.format_exc())
-                return None
+        except Exception as e:
+            self.logger.error(f"Error extracting video info from {video_url}: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return None
 
     
     def download_file(self, url, filepath):
@@ -409,8 +436,9 @@ class Rule34VideoScraper:
         return False
     
     def process_video(self, video_info):
-        """Process and download a single video"""
+        """Process and download a single video with proper folder structure"""
         if not video_info or not video_info.get("video_src"):
+            self.logger.error("No video info or video source provided")
             return False
         
         video_id = video_info["video_id"]
@@ -420,12 +448,18 @@ class Rule34VideoScraper:
             self.logger.info(f"Video {video_id} already downloaded, skipping")
             return True
         
-        # Create download directory
+        # Create main download directory
         download_path = Path(self.config["general"]["download_path"])
+        download_path.mkdir(parents=True, exist_ok=True)
+        
+        # Create video-specific directory
         video_dir = download_path / video_id
         
         # Download video first (temporary location)
         temp_video_path = download_path / f"{video_id}_temp.mp4"
+        
+        self.logger.info(f"Starting download for video {video_id}")
+        self.logger.info(f"Video URL: {video_info['video_src']}")
         
         if not self.download_file(video_info["video_src"], temp_video_path):
             self.logger.error(f"Failed to download video: {video_id}")
@@ -438,28 +472,46 @@ class Rule34VideoScraper:
                 temp_video_path.unlink()
             return False
         
-        # Create video directory and move files
-        video_dir.mkdir(exist_ok=True)
+        # Create video directory only after successful download and verification
+        video_dir.mkdir(parents=True, exist_ok=True)
+        self.logger.info(f"Created directory: {video_dir}")
+        
+        # Move video to final location
         final_video_path = video_dir / f"{video_id}.mp4"
         temp_video_path.rename(final_video_path)
+        self.logger.info(f"Video moved to: {final_video_path}")
         
-        # Download thumbnail
+        # Download thumbnail if available
         if video_info.get("thumbnail_src"):
             thumbnail_path = video_dir / f"{video_id}.jpg"
-            self.download_file(video_info["thumbnail_src"], thumbnail_path)
+            if self.download_file(video_info["thumbnail_src"], thumbnail_path):
+                self.logger.info(f"Thumbnail downloaded: {thumbnail_path}")
+            else:
+                self.logger.warning(f"Failed to download thumbnail for {video_id}")
         
-        # Save metadata
+        # Save metadata JSON
         json_path = video_dir / f"{video_id}.json"
-        with open(json_path, 'w') as f:
-            json.dump(video_info, f, indent=2)
+        try:
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(video_info, f, indent=2, ensure_ascii=False)
+            self.logger.info(f"Metadata saved: {json_path}")
+        except Exception as e:
+            self.logger.error(f"Failed to save metadata for {video_id}: {e}")
+        
+        # Calculate file size for progress tracking
+        try:
+            file_size_mb = final_video_path.stat().st_size / (1024 * 1024)
+        except:
+            file_size_mb = 0
         
         # Update progress
         self.progress["downloaded_videos"].append(video_id)
         self.progress["last_video_id"] = video_id
         self.progress["total_downloaded"] += 1
+        self.progress["total_size_mb"] = self.progress.get("total_size_mb", 0) + file_size_mb
         self.save_progress()
         
-        self.logger.info(f"Successfully processed video: {video_id}")
+        self.logger.info(f"Successfully processed video: {video_id} ({file_size_mb:.2f} MB)")
         return True
     
     def verify_video_file(self, filepath):
@@ -486,60 +538,105 @@ class Rule34VideoScraper:
             return False
     
     def run(self):
-        """Main scraping loop"""
+        """Main scraping loop - process all videos on first page"""
         try:
             self.setup_driver()
             
-            # Get starting page - for testing, let's start with a smaller number
-            if self.config["scraping"]["start_from_last_page"]:
-                start_page = min(self.get_last_page_number(), 5)  # Limit to 5 for testing
-            else:
-                start_page = self.progress.get("last_page", 1)
+            # Start with page 1 for testing
+            current_page = 1
+            self.logger.info(f"Starting scrape from page {current_page}")
             
-            self.logger.info(f"Starting scrape from page {start_page}")
+            # Get all video links from the page
+            video_links = self.get_video_links_from_page(current_page)
             
-            # Process pages in reverse order (or just start with page 1 for testing)
-            test_pages = [1, 2] if start_page > 2 else [start_page]
+            if not video_links:
+                self.logger.error(f"No video links found on page {current_page}")
+                return
             
-            for page_num in test_pages:
-                self.logger.info(f"Processing page {page_num}")
+            self.logger.info(f"Found {len(video_links)} videos to process on page {current_page}")
+            
+            # Process each video
+            successful_downloads = 0
+            failed_downloads = 0
+            
+            for i, video_url in enumerate(video_links, 1):
+                self.logger.info(f"\n{'='*50}")
+                self.logger.info(f"Processing video {i}/{len(video_links)}")
+                self.logger.info(f"URL: {video_url}")
+                self.logger.info(f"{'='*50}")
                 
-                video_links = self.get_video_links_from_page(page_num)
-                
-                if not video_links:
-                    self.logger.warning(f"No video links found on page {page_num}")
-                    continue
-                
-                # Process only first 2 videos for testing
-                for video_url in video_links[:2]:
-                    self.logger.info(f"Processing video: {video_url}")
+                try:
+                    # Extract video information
                     video_info = self.extract_video_info(video_url)
                     
-                    if video_info:
-                        if video_info.get("video_src"):
-                            self.process_video(video_info)
-                        else:
-                            self.logger.warning(f"No video source found for {video_url}")
+                    if not video_info:
+                        self.logger.error(f"Failed to extract info for video {i}")
+                        failed_downloads += 1
+                        continue
                     
-                    # Small delay between videos
-                    time.sleep(self.config["general"]["delay_between_requests"] / 1000)
-                
-                # Update page progress
-                self.progress["last_page"] = page_num
-                self.save_progress()
-                
-                # For testing, break after first page
-                break
+                    # Log extracted information
+                    self.logger.info(f"Video Info Extracted:")
+                    self.logger.info(f"  ID: {video_info['video_id']}")
+                    self.logger.info(f"  Title: {video_info['title']}")
+                    self.logger.info(f"  Duration: {video_info['duration']}")
+                    self.logger.info(f"  Views: {video_info['views']}")
+                    self.logger.info(f"  Tags: {len(video_info['tags'])} tags")
+                    self.logger.info(f"  Has video source: {'Yes' if video_info.get('video_src') else 'No'}")
+                    self.logger.info(f"  Has thumbnail: {'Yes' if video_info.get('thumbnail_src') else 'No'}")
+                    
+                    # Process (download) the video
+                    if video_info.get("video_src"):
+                        if self.process_video(video_info):
+                            successful_downloads += 1
+                            self.logger.info(f"✅ Successfully processed video {i}/{len(video_links)}")
+                        else:
+                            failed_downloads += 1
+                            self.logger.error(f"❌ Failed to process video {i}/{len(video_links)}")
+                    else:
+                        self.logger.warning(f"⚠️ No video source found for video {i}/{len(video_links)}")
+                        failed_downloads += 1
+                    
+                    # Small delay between videos to be respectful
+                    delay_seconds = self.config["general"]["delay_between_requests"] / 1000
+                    self.logger.info(f"Waiting {delay_seconds} seconds before next video...")
+                    time.sleep(delay_seconds)
+                    
+                except Exception as e:
+                    self.logger.error(f"Unexpected error processing video {i}: {e}")
+                    failed_downloads += 1
+                    import traceback
+                    self.logger.error(traceback.format_exc())
+                    continue
+            
+            # Update page progress
+            self.progress["last_page"] = current_page
+            self.save_progress()
+            
+            # Final summary
+            self.logger.info(f"\n{'='*60}")
+            self.logger.info(f"PAGE {current_page} PROCESSING COMPLETE")
+            self.logger.info(f"{'='*60}")
+            self.logger.info(f"Total videos found: {len(video_links)}")
+            self.logger.info(f"Successfully downloaded: {successful_downloads}")
+            self.logger.info(f"Failed downloads: {failed_downloads}")
+            self.logger.info(f"Success rate: {(successful_downloads/len(video_links)*100):.1f}%")
+            self.logger.info(f"Total downloaded so far: {self.progress['total_downloaded']}")
+            
+            if self.progress.get("total_size_mb"):
+                self.logger.info(f"Total size downloaded: {self.progress['total_size_mb']:.2f} MB")
+            
+            self.logger.info(f"{'='*60}")
                 
         except KeyboardInterrupt:
             self.logger.info("Scraping interrupted by user")
         except Exception as e:
-            self.logger.error(f"Unexpected error: {e}")
+            self.logger.error(f"Unexpected error in main loop: {e}")
             import traceback
             self.logger.error(traceback.format_exc())
         finally:
             if self.driver:
-                input("Press Enter to close browser...")  # Keep browser open for debugging
+                self.logger.info("Keeping browser open for inspection...")
+                input("Press Enter to close browser...")
                 self.driver.quit()
             self.logger.info("Scraper finished")
 
