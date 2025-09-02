@@ -268,7 +268,7 @@ class Rule34VideoScraper:
         except Exception as e:
             self.logger.error(f"Error getting video links from page {page_num}: {e}")
             return []
-    
+   
     def extract_video_info(self, video_url):
         """Extract video information using exact XPaths"""
         try:
@@ -298,13 +298,47 @@ class Rule34VideoScraper:
                 "thumbnail_src": ""
             }
 
+            # ---- Helper: parse views text into integer ----
+            def _parse_views_number(views_text: str) -> int:
+                if not views_text:
+                    return 0
+                # Try to find number inside parentheses first: e.g. "24K (24,007)"
+                paren_match = re.search(r'\(([\d,]+)\)', views_text)
+                if paren_match:
+                    num = paren_match.group(1).replace(',', '')
+                    try:
+                        return int(num)
+                    except:
+                        pass
+                # Otherwise try to parse possible K/M/B suffixes or plain numbers (like "24K" or "1.2M")
+                short_match = re.search(r'([\d,.]+)\s*([KkMmBb]?)', views_text)
+                if short_match:
+                    num_str = short_match.group(1).replace(',', '')
+                    suffix = short_match.group(2).upper()
+                    try:
+                        value = float(num_str)
+                    except:
+                        # fallback: extract digits only
+                        digits = re.sub(r'\D', '', views_text)
+                        return int(digits) if digits else 0
+                    if suffix == 'K':
+                        return int(value * 1_000)
+                    if suffix == 'M':
+                        return int(value * 1_000_000)
+                    if suffix == 'B':
+                        return int(value * 1_000_000_000)
+                    # no suffix
+                    return int(value)
+                # Final fallback: extract digits
+                digits = re.sub(r'\D', '', views_text)
+                return int(digits) if digits else 0
+
             # Extract title using exact XPath
             try:
                 title_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'thumb_title')]")
                 video_info["title"] = title_element.text.strip()
                 self.logger.info(f"Title extracted: {video_info['title']}")
             except NoSuchElementException:
-                # Fallback to h1 if thumb_title not found on video page
                 try:
                     title_element = self.driver.find_element(By.TAG_NAME, "h1")
                     video_info["title"] = title_element.text.strip()
@@ -312,52 +346,208 @@ class Rule34VideoScraper:
                     video_info["title"] = f"Video_{video_id}"
                     self.logger.warning(f"Could not extract title, using default: {video_info['title']}")
 
-            # Extract duration using exact XPath
+            # Extract duration using exact XPath (legacy fallback kept)
             try:
                 duration_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'time')]")
-                video_info["duration"] = duration_element.text.strip()
-                self.logger.info(f"Duration extracted: {video_info['duration']}")
+                if duration_element and duration_element.text.strip():
+                    video_info["duration"] = duration_element.text.strip()
+                    self.logger.info(f"Duration extracted (fallback): {video_info['duration']}")
             except NoSuchElementException:
-                self.logger.warning("Could not find duration element")
+                self.logger.debug("Could not find duration element using fallback XPath")
 
-            # Extract views using exact XPath
+            # Extract views using exact XPath (legacy fallback kept)
             try:
                 views_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'views')]")
                 views_text = views_element.text.strip()
-                # Clean up views text (remove "views" word, keep numbers)
-                views_match = re.search(r'([\d,\.]+[KMB]?)', views_text)
+                views_number = None
+                views_match = re.search(r'([\d,\.]+[KMBkmb]?)', views_text)
                 if views_match:
-                    video_info["views"] = views_match.group(1)
+                    views_number = _parse_views_number(views_text)
                 else:
-                    video_info["views"] = views_text
-                self.logger.info(f"Views extracted: {video_info['views']}")
+                    views_number = _parse_views_number(views_text)
+                video_info["views"] = str(views_number)
+                self.logger.info(f"Views extracted (fallback): {video_info['views']}")
             except NoSuchElementException:
-                self.logger.warning("Could not find views element")
+                self.logger.debug("Could not find views element using fallback XPath")
 
-            # Extract tags using exact XPath
+            # Extract uploader (unchanged behavior but slightly more robust)
+            try:
+                # Find div with class 'label' that contains text 'Uploaded by' (case-insensitive)
+                label_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class,'label')]")
+                uploader_found = False
+                for lbl in label_elements:
+                    try:
+                        lbl_text = lbl.text.strip()
+                    except:
+                        lbl_text = ""
+                    if lbl_text and 'uploaded by' in lbl_text.lower():
+                        # find following a.btn_link sibling (or descendant)
+                        try:
+                            uploader_element = lbl.find_element(By.XPATH, ".//following-sibling::a[contains(@class,'btn_link')][1]")
+                        except NoSuchElementException:
+                            try:
+                                uploader_element = lbl.find_element(By.XPATH, ".//a[contains(@class,'btn_link')][1]")
+                            except NoSuchElementException:
+                                uploader_element = None
+                        if uploader_element:
+                            video_info["uploader"] = uploader_element.text.strip()
+                            uploader_found = True
+                            self.logger.info(f"Uploader extracted: {video_info['uploader']}")
+                            break
+                if not uploader_found:
+                    self.logger.debug("Uploader label not found via label scan")
+            except Exception:
+                self.logger.warning("Error while extracting uploader (non-fatal)")
+
+            # ---------- NEW: Extract the three item_info blocks (upload_date, views, duration) ----------
+            try:
+                item_info_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'item_info')]")
+                # iterate through them and detect by svg class
+                for item in item_info_elements:
+                    try:
+                        # Use the whole text of the item_info block as a starting point
+                        item_text = item.text.strip()
+                    except:
+                        item_text = ""
+
+                    # Try detection by presence of specific svg classes inside this item_info
+                    is_calender = False
+                    is_eye = False
+                    is_time = False
+                    try:
+                        # check for svg presence; presence is enough to classify
+                        if item.find_elements(By.XPATH, ".//svg[contains(@class,'custom-calender')]"):
+                            is_calender = True
+                        if item.find_elements(By.XPATH, ".//svg[contains(@class,'custom-eye')]"):
+                            is_eye = True
+                        if item.find_elements(By.XPATH, ".//svg[contains(@class,'custom-time')]"):
+                            is_time = True
+                    except Exception:
+                        # fallback: try by aria-label or title on svg
+                        try:
+                            svg_elements = item.find_elements(By.TAG_NAME, "svg")
+                            for sv in svg_elements:
+                                try:
+                                    cls = sv.get_attribute("class") or ""
+                                    if "calender" in cls:
+                                        is_calender = True
+                                    if "eye" in cls:
+                                        is_eye = True
+                                    if "time" in cls:
+                                        is_time = True
+                                except:
+                                    continue
+                        except:
+                            pass
+
+                    # Now assign based on detection and cleaned text
+                    if is_calender and not video_info.get("upload_date"):
+                        # item_text likely like "1 week ago" or similar
+                        if item_text:
+                            # remove any label words and just keep the time text
+                            video_info["upload_date"] = item_text
+                        else:
+                            # fallback: try sibling text node
+                            try:
+                                sibling = item.find_element(By.XPATH, ".//*[normalize-space(text())]")
+                                video_info["upload_date"] = sibling.text.strip()
+                            except:
+                                pass
+                        self.logger.info(f"Upload date extracted: {video_info['upload_date']}")
+
+                    elif is_eye and not video_info.get("views"):
+                        # item_text may be "24K (24,007)" or "24K" etc.
+                        if item_text:
+                            views_num = _parse_views_number(item_text)
+                            video_info["views"] = str(views_num)
+                            self.logger.info(f"Views extracted from item_info: {video_info['views']}")
+                        else:
+                            # fallback: try inner text nodes
+                            try:
+                                inner_text = item.get_attribute("textContent") or ""
+                                views_num = _parse_views_number(inner_text)
+                                video_info["views"] = str(views_num)
+                                self.logger.info(f"Views extracted (fallback inner): {video_info['views']}")
+                            except:
+                                pass
+
+                    elif is_time and (not video_info.get("duration") or video_info["duration"] == ""):
+                        if item_text:
+                            # prefer hh:mm:ss or m:ss style string
+                            # item_text might contain extra label, so extract time pattern
+                            time_match = re.search(r'(\d{1,2}:\d{2}(?::\d{2})?)', item_text)
+                            if time_match:
+                                video_info["duration"] = time_match.group(1)
+                            else:
+                                video_info["duration"] = item_text
+                            self.logger.info(f"Duration extracted from item_info: {video_info['duration']}")
+                        else:
+                            try:
+                                inner_text = item.get_attribute("textContent") or ""
+                                time_match = re.search(r'(\d{1,2}:\d{2}(?::\d{2})?)', inner_text)
+                                if time_match:
+                                    video_info["duration"] = time_match.group(1)
+                                    self.logger.info(f"Duration extracted (fallback inner): {video_info['duration']}")
+                            except:
+                                pass
+                # If any of the fields still empty, they'll be filled by other fallbacks below
+            except Exception:
+                self.logger.warning("Could not parse item_info blocks for upload_date/views/duration")
+
+            # Extract tags: exclude unwanted tags (case-insensitive)
             try:
                 tag_elements = self.driver.find_elements(By.XPATH, "//a[contains(@class, 'tag_item')]")
                 tags = []
+                ignore_tags = {
+                    "+ | suggest", "+ | Suggest",  # keep both forms but we'll do lower() comparison below
+                    "mp4 2160p", "mp4 1080p", "mp4 720p", "mp4 480p", "mp4 360p",
+                    "suggest"
+                }
                 for tag_element in tag_elements:
                     tag_text = tag_element.text.strip()
-                    if tag_text:
-                        tags.append(tag_text)
+                    if not tag_text:
+                        continue
+                    if tag_text.lower() in {t.lower() for t in ignore_tags}:
+                        self.logger.debug(f"Ignoring tag: {tag_text}")
+                        continue
+                    tags.append(tag_text)
                 video_info["tags"] = tags
-                self.logger.info(f"Tags extracted: {len(tags)} tags - {tags[:5]}")  # Show first 5 tags
+                self.logger.info(f"Tags extracted: {len(tags)} tags - {tags[:5]}")
             except NoSuchElementException:
                 self.logger.warning("Could not find tag elements")
 
-            # Extract thumbnail using exact XPath
+            # Extract thumbnail using exact XPath (lazy-load before popup)
             try:
-                thumbnail_element = self.driver.find_element(By.XPATH, "//img[contains(@class, 'thumb')]")
-                thumbnail_src = thumbnail_element.get_attribute("src")
-                if thumbnail_src:
-                    video_info["thumbnail_src"] = urljoin(self.base_url, thumbnail_src)
-                    self.logger.info(f"Thumbnail extracted: {video_info['thumbnail_src']}")
-            except NoSuchElementException:
-                self.logger.warning("Could not find thumbnail element")
+                # choose the first lazy-load image that has a src/data-src attribute
+                lazy_imgs = self.driver.find_elements(By.XPATH, "//img[contains(@class, 'lazy-load')]")
+                thumb_src = None
+                for img in lazy_imgs:
+                    try:
+                        # prefer data-src, then src, then data-lazy
+                        candidate = img.get_attribute("data-src") or img.get_attribute("src") or img.get_attribute("data-lazy")
+                        if candidate and candidate.strip():
+                            thumb_src = candidate.strip()
+                            break
+                    except:
+                        continue
+                if thumb_src:
+                    video_info["thumbnail_src"] = urljoin(self.base_url, thumb_src)
+                    self.logger.info(f"Thumbnail extracted (lazy-load): {video_info['thumbnail_src']}")
+                else:
+                    self.logger.debug("No lazy-load thumbnail found; will fallback to other selectors")
+                    # fallback to previous selector
+                    try:
+                        thumbnail_element = self.driver.find_element(By.XPATH, "//img[contains(@class, 'thumb')]")
+                        thumbnail_src = thumbnail_element.get_attribute("src")
+                        if thumbnail_src:
+                            video_info["thumbnail_src"] = urljoin(self.base_url, thumbnail_src)
+                            self.logger.info(f"Thumbnail extracted (fallback): {video_info['thumbnail_src']}")
+                    except NoSuchElementException:
+                        self.logger.warning("Could not find thumbnail element")
+            except Exception:
+                self.logger.warning("Error while extracting lazy-load thumbnail")
 
-            # Extract video source using exact XPath
+            # Extract video source using exact XPath (unchanged)
             try:
                 video_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'fp-player')]//video")
 
@@ -393,6 +583,8 @@ class Rule34VideoScraper:
             self.logger.info(f"  Title: '{video_info['title'][:50]}...'")
             self.logger.info(f"  Duration: {video_info['duration']}")
             self.logger.info(f"  Views: {video_info['views']}")
+            self.logger.info(f"  Uploader: {video_info['uploader']}")
+            self.logger.info(f"  Upload date: {video_info['upload_date']}")
             self.logger.info(f"  Tags: {len(video_info['tags'])} tags")
             self.logger.info(f"  Video source: {'Found' if video_info['video_src'] else 'None'}")
             self.logger.info(f"  Thumbnail: {'Found' if video_info['thumbnail_src'] else 'None'}")
@@ -404,7 +596,6 @@ class Rule34VideoScraper:
             import traceback
             self.logger.error(traceback.format_exc())
             return None
-
     
     def download_file(self, url, filepath):
         """Download a file with retry logic"""
