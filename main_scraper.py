@@ -73,7 +73,7 @@ class VideoScraper:
             self.logger.addHandler(file_handler)
     
     def run(self):
-        """Main execution loop - orchestrates the entire scraping process"""
+        """Main execution loop - backward pagination with storage limit"""
         try:
             # Setup driver
             self.web_driver_manager.setup_driver()
@@ -90,6 +90,8 @@ class VideoScraper:
             
         except KeyboardInterrupt:
             self.logger.info("Scraping interrupted by user")
+            current_usage = self._get_download_folder_size()
+            self.logger.info(f"Usage at interruption: {current_usage / (1024**3):.2f} GB")
         except Exception as e:
             self.logger.error(f"Unexpected error in main loop: {e}")
             traceback.print_exc()
@@ -153,20 +155,28 @@ class VideoScraper:
         
         if not video_links:
             self.logger.error(f"No video links found on page {page_num}")
-            return
+            return False
         
         self.logger.info(f"Found {len(video_links)} videos to process on page {page_num}")
         
         # Process each video
         stats = {"successful": 0, "failed": 0, "skipped": 0}
+        max_storage_bytes = self.config["general"]["max_storage_gb"] * 1024**3
         
         for i, video_url in enumerate(video_links, 1):
-            self.logger.info(f"\n{'='*50}")
-            self.logger.info(f"Processing video {i}/{len(video_links)}")
+            self.logger.info(f"\n{'-'*50}")
+            self.logger.info(f"Processing video {i}/{len(video_links)} on page {page_num}")
             self.logger.info(f"URL: {video_url}")
-            self.logger.info(f"{'='*50}")
+            self.logger.info(f"{'-'*50}")
             
             try:
+                # Check storage limit before each video
+                pre_video_usage = self._get_download_folder_size()
+                if pre_video_usage >= max_storage_bytes:
+                    usage_gb = pre_video_usage / (1024**3)
+                    self.logger.info(f"🛑 Storage limit reached before video {i}. Usage: {usage_gb:.2f} GB")
+                    break
+                
                 # Extract video ID for pre-check
                 video_id = self.smart_retry_extractor.extract_video_id_from_url(video_url)
                 
@@ -383,6 +393,9 @@ class VideoScraper:
     
     def generate_final_report(self, page_num, video_links, stats):
         """Create summary of scraping results"""
+        current_usage = self._get_download_folder_size()
+        usage_gb = current_usage / (1024**3)
+        
         self.logger.info(f"\n{'='*60}")
         self.logger.info(f"PAGE {page_num} PROCESSING COMPLETE")
         self.logger.info(f"{'='*60}")
@@ -403,6 +416,12 @@ class VideoScraper:
         self.logger.info(f"Total downloaded so far: {overall_stats['total_downloaded']}")
         if overall_stats.get("total_size_mb"):
             self.logger.info(f"Total size downloaded: {overall_stats['total_size_mb']:.2f} MB")
+        
+        # Storage usage
+        self.logger.info(f"Current disk usage: {usage_gb:.2f} GB")
+        storage_percentage = (usage_gb / self.config["general"]["max_storage_gb"]) * 100
+        self.logger.info(f"Storage utilization: {storage_percentage:.1f}%")
+        
         self.logger.info(f"{'='*60}")
     
     async def run_full_site_scrape(self, start_page=1, end_page=None):

@@ -243,8 +243,12 @@ class VideoProcessor:
             if video_file_path.exists():
                 file_size_mb = video_file_path.stat().st_size / (1024 * 1024)
             
+            file_size_mb = 0
+            if video_file_path.exists():
+                file_size_mb = video_file_path.stat().st_size / (1024 * 1024)
+            
             self.progress_tracker.update_download_stats(video_id, file_size_mb)
-            self.logger.info(f"Successfully processed and validated video: {video_id} ({file_size_mb:.2f} MB)")
+            self.logger.info(f"Successfully processed video: {video_id} ({file_size_mb:.2f} MB)")
             
         except Exception as e:
             self.logger.error(f"Error updating progress: {e}")

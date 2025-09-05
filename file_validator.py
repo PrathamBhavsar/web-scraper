@@ -24,7 +24,7 @@ class FileValidator:
         # Check required fields exist and are not empty
         for field in required_fields:
             if field not in video_info:
-                errors.append(f"Missing required field: {field}")
+                errors.append(f"Missing critical field: {field}")
             elif not video_info[field] or str(video_info[field]).strip() == "":
                 errors.append(f"Empty required field: {field}")
 
@@ -87,12 +87,12 @@ class FileValidator:
         if "tags" in video_info:
             tags = video_info["tags"]
             if not isinstance(tags, list):
-                errors.append(f"Tags must be a list, got: {type(tags)}")
+                warnings.append(f"Tags should be a list, got: {type(tags)}")
             elif len(tags) == 0:
                 errors.append("Tags list is empty - should have at least some tags")
 
     def validate_video_folder(self, video_id):
-        """Check if video folder contains all required files with proper content"""
+        """Relaxed folder validation - only check for essential files"""
         try:
             # Safe config access
             general_config = self.config.get("general", {})
@@ -105,7 +105,12 @@ class FileValidator:
 
             # Check for required files
             json_file = video_dir / f"{video_id}.json"
-            video_file = video_dir / f"{video_id}.mp4"
+            if not json_file.exists():
+                self.logger.warning(f"JSON metadata missing for {video_id}")
+            elif json_file.stat().st_size == 0:
+                self.logger.warning(f"JSON metadata empty for {video_id}")
+            
+            # Optional thumbnail validation - warn but don't fail
             thumbnail_files = list(video_dir.glob(f"{video_id}.*"))
             thumbnail_files = [f for f in thumbnail_files if f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp']]
 
@@ -146,7 +151,7 @@ class FileValidator:
                 validation_errors.append(f"JSON file error: {e}")
 
     def _validate_video_file(self, video_file, validation_errors):
-        """Validate video file existence and size"""
+        """Relaxed video file validation"""
         if not video_file.exists():
             validation_errors.append("Video file missing")
         else:
@@ -160,9 +165,10 @@ class FileValidator:
                 validation_errors.append("Video file appears corrupted")
 
     def _validate_thumbnail_files(self, thumbnail_files, validation_errors):
-        """Validate thumbnail file existence and size"""
+        """Relaxed thumbnail validation - optional"""
         if len(thumbnail_files) == 0:
-            validation_errors.append("Thumbnail file missing")
+            # Don't fail validation for missing thumbnail - just warn
+            self.logger.warning("Thumbnail file missing - continuing anyway")
         else:
             thumb_file = thumbnail_files[0]
             # Safe config access with default
@@ -173,7 +179,7 @@ class FileValidator:
                 validation_errors.append(f"Thumbnail file too small: {thumb_file.stat().st_size} bytes")
 
     def verify_video_file(self, filepath):
-        """Check if video file has valid MP4 headers"""
+        """Much more lenient video file verification"""
         try:
             if not os.path.exists(filepath):
                 return False
@@ -229,11 +235,10 @@ class FileValidator:
         return True, "File sizes are valid"
 
     def validate_complete_download(self, video_info, video_dir):
-        """Verify all files are properly downloaded and contain valid data"""
+        """Much more lenient complete download validation"""
         video_id = video_info["video_id"]
 
         try:
-            json_file = video_dir / f"{video_id}.json"
             video_file = video_dir / f"{video_id}.mp4"
             thumbnail_files = list(video_dir.glob(f"{video_id}.*"))
             thumbnail_files = [f for f in thumbnail_files if f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp']]
