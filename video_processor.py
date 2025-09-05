@@ -1,3 +1,4 @@
+import os
 import json
 import time
 import logging
@@ -13,81 +14,103 @@ class VideoProcessor:
         self.logger = logging.getLogger('Rule34Scraper')
     
     def process_video(self, video_info, max_retries=3):
-        """Main video processing orchestrator with retry logic"""
+        """Process and download a single video with comprehensive validation and retry logic"""
         if not video_info or not video_info.get("video_src"):
             self.logger.error("No video info or video source provided")
             return False
-        
+
         video_id = video_info["video_id"]
-        
-        # Check if already processed and valid
+        download_path = Path(self.config.get("general", {}).get("download_path", "C:\\scraper_downloads\\"))
+        video_dir = download_path / video_id
+
+        # Check if video already exists and is completely valid
         if self.file_validator.validate_video_folder(video_id):
             self.logger.info(f"Video {video_id} already exists and is valid, skipping")
             self.progress_tracker.update_download_stats(video_id, 0)
             return True
-        
-        # Clean up any existing incomplete folder
-        self.cleanup_failed_download(video_id)
-        
-        # Retry processing logic
+
+        # Clean up any existing incomplete folder before starting
+        if video_dir.exists():
+            self.cleanup_incomplete_folder(video_id)
+
+        # Retry logic for the entire video processing
         return self.retry_video_processing(video_info, max_retries)
     
     def retry_video_processing(self, video_info, max_retries):
-        """Handle retry logic for failed processing"""
+        """Retry logic for video processing with safe config access"""
         video_id = video_info["video_id"]
         
         for retry in range(max_retries):
             try:
                 self.logger.info(f"Processing video {video_id} (attempt {retry + 1}/{max_retries})")
                 
-                # Create directory structure
-                video_dir = self.create_video_directory(video_id)
-                if not video_dir:
-                    if retry == max_retries - 1:
-                        return False
-                    continue
-                
-                # Validate video info before processing
+                # Validate video info before proceeding
                 if not self._validate_video_info_before_processing(video_info, video_id, retry, max_retries):
                     continue
                 
-                # Download video file
+                # Create video directory
+                video_dir = self._create_video_directory(video_info, video_id, retry, max_retries)
+                if not video_dir:
+                    continue
+                
+                # Download and validate video file
                 if not self._download_video_with_validation(video_info, video_dir, video_id, retry, max_retries):
                     continue
                 
-                # Download thumbnail
-                if not self._download_thumbnail_with_validation(video_info, video_dir, video_id, retry, max_retries):
-                    continue
+                # Download thumbnail (optional - don't fail if this doesn't work)
+                self._download_thumbnail_optional(video_info, video_id, video_dir)
                 
-                # Save metadata
-                if not self.save_metadata_json(video_info, video_dir, video_id, retry, max_retries):
+                # Save metadata JSON
+                if not self._save_metadata_json(video_info, video_dir, video_id, retry, max_retries):
                     continue
                 
                 # Final validation
-                if not self._perform_final_validation(video_info, video_dir, video_id, retry, max_retries):
+                if not self._final_validation(video_info, video_dir, video_id, retry, max_retries):
                     continue
                 
-                # Success - update progress
+                # Update progress and return success
                 self._update_success_progress(video_info, video_dir)
                 return True
                 
             except Exception as e:
                 self.logger.error(f"Unexpected error processing video {video_id} (attempt {retry + 1}): {e}")
-                import traceback
-                self.logger.error(traceback.format_exc())
-                self.cleanup_failed_download(video_id)
+                self.cleanup_incomplete_folder(video_id)
                 
                 if retry == max_retries - 1:
                     return False
                 
-                time.sleep(self.config["validation"]["validation_delay_seconds"])
+                # Safe delay access with default
+                validation_config = self.config.get("validation", {})
+                delay = validation_config.get("validation_delay_seconds", 2)
+                time.sleep(delay)
         
         return False
     
-    def create_video_directory(self, video_id):
-        """Create directory structure for video files"""
+    def _validate_video_info_before_processing(self, video_info, video_id, retry, max_retries):
+        """Validate video info before processing"""
         try:
-            download_path = Path(self.config["general"]["download_path"])
+            is_info_valid, info_errors = self.file_validator.validate_video_info(video_info)
+            if not is_info_valid:
+                self.logger.error(f"Video info validation failed for {video_id}: {info_errors}")
+                if retry == max_retries - 1:
+                    return False
+                
+                # Safe delay access with default
+                validation_config = self.config.get("validation", {})
+                delay = validation_config.get("validation_delay_seconds", 2)
+                time.sleep(delay)
+                return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error validating video info: {e}")
+            return False
+    
+    def _create_video_directory(self, video_info, video_id, retry, max_retries):
+        """Create video directory with error handling"""
+        try:
+            download_path = Path(self.config.get("general", {}).get("download_path", "C:\\scraper_downloads\\"))
             download_path.mkdir(parents=True, exist_ok=True)
             
             video_dir = download_path / video_id
@@ -98,29 +121,138 @@ class VideoProcessor:
             
         except Exception as e:
             self.logger.error(f"Failed to create directory for {video_id}: {e}")
+            self.cleanup_incomplete_folder(video_id)
+            
+            if retry == max_retries - 1:
+                return None
+            
+            # Safe delay access with default
+            validation_config = self.config.get("validation", {})
+            delay = validation_config.get("validation_delay_seconds", 2)
+            time.sleep(delay)
             return None
     
-    def save_metadata_json(self, video_info, video_dir, video_id, retry, max_retries):
-        """Save video information to JSON file"""
+    def _download_video_with_validation(self, video_info, video_dir, video_id, retry, max_retries):
+        """Download video file with validation"""
+        try:
+            video_file_path = video_dir / f"{video_id}.mp4"
+            self.logger.info(f"Starting video download for {video_id}")
+            
+            # Download the video file
+            if not self.file_downloader.download_file(video_info["video_src"], video_file_path):
+                self.logger.error(f"Failed to download video: {video_id} (attempt {retry + 1})")
+                self.cleanup_incomplete_folder(video_id)
+                
+                if retry == max_retries - 1:
+                    return False
+                
+                # Safe delay access with default
+                validation_config = self.config.get("validation", {})
+                delay = validation_config.get("validation_delay_seconds", 2)
+                time.sleep(delay)
+                return False
+            
+            # Verify video file immediately after download
+            if not self.file_validator.verify_video_file(video_file_path):
+                self.logger.error(f"Video verification failed: {video_id} (attempt {retry + 1})")
+                self.cleanup_incomplete_folder(video_id)
+                
+                if retry == max_retries - 1:
+                    return False
+                
+                # Safe delay access with default
+                validation_config = self.config.get("validation", {})
+                delay = validation_config.get("validation_delay_seconds", 2)
+                time.sleep(delay)
+                return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error downloading video {video_id}: {e}")
+            return False
+    
+    def _download_thumbnail_optional(self, video_info, video_id, video_dir):
+        """Download thumbnail (optional - don't fail if this doesn't work)"""
+        try:
+            if video_info.get("thumbnail_src"):
+                thumbnail_downloaded = self.file_downloader.download_thumbnail(
+                    video_info["thumbnail_src"], video_id, video_dir
+                )
+                if thumbnail_downloaded:
+                    self.logger.info(f"Thumbnail downloaded for {video_id}")
+                else:
+                    self.logger.warning(f"Thumbnail download failed for {video_id} - continuing anyway")
+        except Exception as e:
+            self.logger.warning(f"Thumbnail download failed for {video_id}: {e} - continuing anyway")
+    
+    def _save_metadata_json(self, video_info, video_dir, video_id, retry, max_retries):
+        """Save metadata JSON with error handling"""
         try:
             json_path = video_dir / f"{video_id}.json"
             with open(json_path, 'w', encoding='utf-8') as f:
                 json.dump(video_info, f, indent=2, ensure_ascii=False)
+            
             self.logger.info(f"Metadata saved: {json_path}")
             return True
             
         except Exception as e:
             self.logger.error(f"Failed to save metadata for {video_id}: {e}")
-            self.cleanup_failed_download(video_id)
+            self.cleanup_incomplete_folder(video_id)
+            
             if retry == max_retries - 1:
                 return False
-            time.sleep(self.config["validation"]["validation_delay_seconds"])
+            
+            # Safe delay access with default
+            validation_config = self.config.get("validation", {})
+            delay = validation_config.get("validation_delay_seconds", 2)
+            time.sleep(delay)
             return False
     
-    def cleanup_failed_download(self, video_id):
-        """Remove incomplete downloads on failure"""
+    def _final_validation(self, video_info, video_dir, video_id, retry, max_retries):
+        """Final comprehensive validation"""
         try:
-            download_path = Path(self.config["general"]["download_path"])
+            is_valid, validation_errors = self.file_validator.validate_complete_download(video_info, video_dir)
+            if not is_valid:
+                self.logger.error(f"Final validation failed for {video_id} (attempt {retry + 1}): {validation_errors}")
+                self.cleanup_incomplete_folder(video_id)
+                
+                if retry == max_retries - 1:
+                    self.logger.error(f"Max retries exceeded for {video_id}, skipping permanently")
+                    return False
+                
+                # Safe delay access with default
+                validation_config = self.config.get("validation", {})
+                delay = validation_config.get("validation_delay_seconds", 2)
+                time.sleep(delay)
+                return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error in final validation for {video_id}: {e}")
+            return False
+    
+    def _update_success_progress(self, video_info, video_dir):
+        """Update progress tracking after successful processing"""
+        try:
+            video_id = video_info["video_id"]
+            video_file_path = video_dir / f"{video_id}.mp4"
+            
+            file_size_mb = 0
+            if video_file_path.exists():
+                file_size_mb = video_file_path.stat().st_size / (1024 * 1024)
+            
+            self.progress_tracker.update_download_stats(video_id, file_size_mb)
+            self.logger.info(f"Successfully processed and validated video: {video_id} ({file_size_mb:.2f} MB)")
+            
+        except Exception as e:
+            self.logger.error(f"Error updating progress: {e}")
+    
+    def cleanup_incomplete_folder(self, video_id):
+        """Remove incomplete video folders"""
+        try:
+            download_path = Path(self.config.get("general", {}).get("download_path", "C:\\scraper_downloads\\"))
             video_dir = download_path / video_id
             
             if video_dir.exists():
@@ -129,80 +261,3 @@ class VideoProcessor:
                 
         except Exception as e:
             self.logger.error(f"Error removing folder {video_id}: {e}")
-    
-    def _validate_video_info_before_processing(self, video_info, video_id, retry, max_retries):
-        """Validate video info before starting download process"""
-        is_info_valid, info_errors = self.file_validator.validate_video_info(video_info)
-        if not is_info_valid:
-            self.logger.error(f"Video info validation failed for {video_id}: {info_errors}")
-            if retry == max_retries - 1:
-                return False
-            time.sleep(self.config["validation"]["validation_delay_seconds"])
-            return False
-        return True
-    
-    def _download_video_with_validation(self, video_info, video_dir, video_id, retry, max_retries):
-        """Download video file with validation"""
-        video_file_path = video_dir / f"{video_id}.mp4"
-        
-        if not self.file_downloader.download_video(video_info["video_src"], video_file_path):
-            self.logger.error(f"Failed to download video: {video_id} (attempt {retry + 1})")
-            self.cleanup_failed_download(video_id)
-            if retry == max_retries - 1:
-                return False
-            time.sleep(self.config["validation"]["validation_delay_seconds"])
-            return False
-        
-        # Verify video file immediately after download
-        if not self.file_validator.verify_video_file(video_file_path):
-            self.logger.error(f"Video verification failed: {video_id} (attempt {retry + 1})")
-            self.cleanup_failed_download(video_id)
-            if retry == max_retries - 1:
-                return False
-            time.sleep(self.config["validation"]["validation_delay_seconds"])
-            return False
-        
-        return True
-    
-    def _download_thumbnail_with_validation(self, video_info, video_dir, video_id, retry, max_retries):
-        """Download thumbnail with validation"""
-        if video_info.get("thumbnail_src"):
-            thumbnail_downloaded = self.file_downloader.download_thumbnail(
-                video_info["thumbnail_src"], video_id, video_dir
-            )
-            if not thumbnail_downloaded:
-                self.logger.error(f"Thumbnail download failed for {video_id} (attempt {retry + 1})")
-                self.cleanup_failed_download(video_id)
-                if retry == max_retries - 1:
-                    return False
-                time.sleep(self.config["validation"]["validation_delay_seconds"])
-                return False
-        
-        return True
-    
-    def _perform_final_validation(self, video_info, video_dir, video_id, retry, max_retries):
-        """Perform final comprehensive validation"""
-        is_valid, validation_errors = self.file_validator.validate_complete_download(video_info, video_dir)
-        if not is_valid:
-            self.logger.error(f"Final validation failed for {video_id} (attempt {retry + 1}): {validation_errors}")
-            self.cleanup_failed_download(video_id)
-            if retry == max_retries - 1:
-                self.logger.error(f"Max retries exceeded for {video_id}, skipping permanently")
-                return False
-            time.sleep(self.config["validation"]["validation_delay_seconds"])
-            return False
-        
-        return True
-    
-    def _update_success_progress(self, video_info, video_dir):
-        """Update progress tracking after successful processing"""
-        try:
-            video_id = video_info["video_id"]
-            video_file_path = video_dir / f"{video_id}.mp4"
-            file_size_mb = self.file_downloader.get_download_stats(video_file_path)
-            
-            self.progress_tracker.update_download_stats(video_id, file_size_mb)
-            self.logger.info(f"Successfully processed and validated video: {video_id} ({file_size_mb:.2f} MB)")
-            
-        except Exception as e:
-            self.logger.error(f"Error updating progress: {e}")
