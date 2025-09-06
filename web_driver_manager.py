@@ -22,7 +22,12 @@ class WebDriverManager:
         chrome_options.add_argument("--disable-extensions")
         chrome_options.add_argument("--disable-web-security")
         chrome_options.add_argument("--allow-running-insecure-content")
-        
+
+        # 🔧 Fix WebGL fallback warning
+        chrome_options.add_argument("--disable-software-rasterizer")
+        chrome_options.add_argument("--disable-webgl")
+        chrome_options.add_argument("--disable-webgl2")
+
         # Add preferences to handle downloads and popups
         prefs = {
             "profile.default_content_setting_values": {
@@ -30,7 +35,7 @@ class WebDriverManager:
             }
         }
         chrome_options.add_experimental_option("prefs", prefs)
-        
+
         self.driver = webdriver.Chrome(options=chrome_options)
         self.driver.implicitly_wait(10)
         self.driver.maximize_window()  # Maximize for better element visibility

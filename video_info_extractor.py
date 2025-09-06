@@ -441,7 +441,6 @@ class VideoInfoExtractor:
                         views_num = self.extract_views_from_crawl4ai(row_text)
                         if views_num and views_num > 0:
                             video_info["views"] = str(views_num)
-                            self.logger.info(f"Views extracted: '{row_text}' -> {video_info['views']}")
 
                     # Check which type of icon this row contains
                     has_calendar = len(row.find_elements(By.XPATH, ".//svg[contains(@class,'custom-calender')]")) > 0
@@ -476,7 +475,6 @@ class VideoInfoExtractor:
                         views_num = self.extract_views_from_crawl4ai(row_text)
                         if views_num is not None:
                             video_info["views"] = str(views_num)
-                        self.logger.info(f"Views extracted: '{row_text}' -> {video_info['views']}")
 
                     elif has_time:
                         if not row_text:

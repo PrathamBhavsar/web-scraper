@@ -1,4 +1,5 @@
 # video_processor.py
+
 import os
 import json
 import time
@@ -76,7 +77,6 @@ class VideoProcessor:
             except Exception as e:
                 self.logger.error(f"Unexpected error processing video {video_id} (attempt {retry + 1}): {e}")
                 self.cleanup_incomplete_folder(video_id)
-
                 if retry == max_retries - 1:
                     return False
 
@@ -95,14 +95,11 @@ class VideoProcessor:
                 self.logger.error(f"Video info validation failed for {video_id}: {info_errors}")
                 if retry == max_retries - 1:
                     return False
-
                 validation_config = self.config.get("validation", {})
                 delay = validation_config.get("validation_delay_seconds", 2)
                 time.sleep(delay)
                 return False
-
             return True
-
         except Exception as e:
             self.logger.error(f"Error validating video info: {e}")
             return False
@@ -115,17 +112,13 @@ class VideoProcessor:
 
             video_dir = download_path / video_id
             video_dir.mkdir(parents=True, exist_ok=True)
-
             self.logger.info(f"Created directory: {video_dir}")
             return video_dir
-
         except Exception as e:
             self.logger.error(f"Failed to create directory for {video_id}: {e}")
             self.cleanup_incomplete_folder(video_id)
-
             if retry == max_retries - 1:
                 return None
-
             validation_config = self.config.get("validation", {})
             delay = validation_config.get("validation_delay_seconds", 2)
             time.sleep(delay)
@@ -141,10 +134,8 @@ class VideoProcessor:
             if not self.file_downloader.download_file(video_info["video_src"], video_file_path):
                 self.logger.error(f"Failed to download video: {video_id} (attempt {retry + 1})")
                 self.cleanup_incomplete_folder(video_id)
-
                 if retry == max_retries - 1:
                     return False
-
                 validation_config = self.config.get("validation", {})
                 delay = validation_config.get("validation_delay_seconds", 2)
                 time.sleep(delay)
@@ -154,17 +145,14 @@ class VideoProcessor:
             if not self.file_validator.verify_video_file(video_file_path):
                 self.logger.error(f"Video verification failed: {video_id} (attempt {retry + 1})")
                 self.cleanup_incomplete_folder(video_id)
-
                 if retry == max_retries - 1:
                     return False
-
                 validation_config = self.config.get("validation", {})
                 delay = validation_config.get("validation_delay_seconds", 2)
                 time.sleep(delay)
                 return False
 
             return True
-
         except Exception as e:
             self.logger.error(f"Error downloading video {video_id}: {e}")
             return False
@@ -176,6 +164,7 @@ class VideoProcessor:
                 thumbnail_downloaded = self.file_downloader.download_thumbnail(
                     video_info["thumbnail_src"], video_id, video_dir
                 )
+
                 if thumbnail_downloaded:
                     self.logger.info(f"Thumbnail downloaded for {video_id}")
                 else:
@@ -189,17 +178,13 @@ class VideoProcessor:
             json_path = video_dir / f"{video_id}.json"
             with open(json_path, 'w', encoding='utf-8') as f:
                 json.dump(video_info, f, indent=2, ensure_ascii=False)
-
             self.logger.info(f"Metadata saved: {json_path}")
             return True
-
         except Exception as e:
             self.logger.error(f"Failed to save metadata for {video_id}: {e}")
             self.cleanup_incomplete_folder(video_id)
-
             if retry == max_retries - 1:
                 return False
-
             validation_config = self.config.get("validation", {})
             delay = validation_config.get("validation_delay_seconds", 2)
             time.sleep(delay)
@@ -212,18 +197,14 @@ class VideoProcessor:
             if not is_valid:
                 self.logger.error(f"Final validation failed for {video_id} (attempt {retry + 1}): {validation_errors}")
                 self.cleanup_incomplete_folder(video_id)
-
                 if retry == max_retries - 1:
                     self.logger.error(f"Max retries exceeded for {video_id}, skipping permanently")
                     return False
-
                 validation_config = self.config.get("validation", {})
                 delay = validation_config.get("validation_delay_seconds", 2)
                 time.sleep(delay)
                 return False
-
             return True
-
         except Exception as e:
             self.logger.error(f"Error in final validation for {video_id}: {e}")
             return False
@@ -253,6 +234,5 @@ class VideoProcessor:
             if video_dir.exists():
                 shutil.rmtree(video_dir)
                 self.logger.info(f"Removed incomplete folder: {video_dir}")
-
         except Exception as e:
             self.logger.error(f"Error removing folder {video_id}: {e}")
