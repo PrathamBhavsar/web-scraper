@@ -235,16 +235,18 @@ class FileValidator:
         return True, "File sizes are valid"
 
     def validate_complete_download(self, video_info, video_dir):
-        """Much more lenient complete download validation"""
+        """Comprehensive validation of the complete download."""
         video_id = video_info["video_id"]
-
         try:
+            # FIX: Define json_file properly before using it
+            json_file = video_dir / f"{video_id}.json"
             video_file = video_dir / f"{video_id}.mp4"
+            
             thumbnail_files = list(video_dir.glob(f"{video_id}.*"))
             thumbnail_files = [f for f in thumbnail_files if f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp']]
 
             validation_errors = []
-
+            
             # Validate each component
             self._validate_json_file(json_file, validation_errors)
             self._validate_video_file(video_file, validation_errors)
