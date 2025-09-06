@@ -7,19 +7,15 @@
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     },
     "download": {
-        "download_method": "hybrid",
-        "idm_path": "C:\\Program Files (x86)\\Internet Download Manager\\idman.exe",
-        "max_retries": 2,
-        "timeout_seconds": 60,
-        "chunk_size": 8192,
-        "verify_downloads": false
+    "max_retries": 3,
+    "connect_timeout_seconds": 10,
+    "read_timeout_seconds": 120,
+    "chunk_size": 8192,
+    "verify_downloads": false
     },
     "scraping": {
-        "start_from_last_page": true,
-        "pages_per_batch": 10,
-        "wait_time_ms": 1000,
-        "max_concurrent_pages": 5,
-        "skip_existing_files": true
+    "wait_for": null,          
+    "wait_time_ms": 5000
     },
     "storage": {
         "create_subdirectories": true,
@@ -36,7 +32,9 @@
     "validation": {
         "min_video_size_bytes": 1024,
         "min_thumbnail_size_bytes": 100,
-        "required_json_fields": ["video_id"],
+        "required_json_fields": [
+            "video_id"
+        ],
         "max_validation_retries": 1,
         "validation_delay_seconds": 1
     }

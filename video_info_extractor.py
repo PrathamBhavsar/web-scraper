@@ -21,7 +21,7 @@ class VideoInfoExtractor:
         self.base_url = "https://rule34video.com"
         self.logger = logging.getLogger('Rule34Scraper')
 
-        # Enhanced Crawl4AI schemas from your files
+        # Enhanced Crawl4AI schemas
         self.listing_schema = {
             "name": "rule34video.com Listing Schema",
             "baseSelector": "#custom_list_videos_most_recent_videos_items > div",
@@ -34,15 +34,17 @@ class VideoInfoExtractor:
             ]
         }
 
+        # UPDATED: Better detail schema for views extraction
         self.detail_schema = {
             "name": "rule34video.com Detail Schema",
             "baseSelector": "div.fancybox-inner > div",
             "fields": [
-                {"name": "info_details", "selector": "#tab_video_info > div.info.row:nth-of-type(1)", "type": "text"},
+                {"name": "info_details", "selector": "#tab_video_info > div.info.row", "type": "text"},
                 {"name": "uploaded_by", "selector": "a.item.btn_link", "type": "text"},
                 {"name": "tags", "selector": "div.wrap", "type": "text"},
                 {"name": "video_source", "selector": "video", "type": "attribute", "attribute": "src"},
-                {"name": "video_poster", "selector": "video", "type": "attribute", "attribute": "poster"}
+                {"name": "video_poster", "selector": "video", "type": "attribute", "attribute": "poster"},
+                {"name": "views", "selector": "span", "type": "text"}  # NEW: Extract views from spans
             ]
         }
 
@@ -125,13 +127,16 @@ class VideoInfoExtractor:
                 extraction_strategy=extraction_strategy,
                 wait_for="css:#tab_video_info",
                 js_code="""
-                // Wait for video player to load
+                // Wait for video player and info to load
                 setTimeout(() => {
                 const video = document.querySelector('video');
                 if (video) {
                 video.load();
                 }
-                }, 2000);
+                // Wait for spans with view counts to load
+                const spans = document.querySelectorAll('span');
+                console.log('Found spans:', spans.length);
+                }, 3000);
                 """
             )
 
@@ -186,7 +191,6 @@ class VideoInfoExtractor:
     def create_complete_video_info_from_schemas(self, listing_data, detail_data):
         """Create complete video info by combining listing and detail schema results"""
         try:
-            # CHANGE: Remove crawl4ai data fields and upload_date_epoch
             video_info = {
                 "video_id": listing_data.get("video_id", ""),
                 "url": listing_data.get("video_link", ""),
@@ -226,7 +230,13 @@ class VideoInfoExtractor:
                         poster = urljoin(self.base_url, poster)
                     video_info["thumbnail_src"] = poster
 
-                # Parse info details for views and other metadata
+                # UPDATED: Extract views from Crawl4AI data
+                if detail_data.get("views"):
+                    views_num = self.extract_views_from_crawl4ai(detail_data["views"])
+                    if views_num is not None:
+                        video_info["views"] = str(views_num)
+
+                # Parse info details for additional metadata
                 if detail_data.get("info_details"):
                     self.parse_info_details_text(video_info, detail_data["info_details"])
 
@@ -238,10 +248,63 @@ class VideoInfoExtractor:
             self.logger.error(f"Error creating complete video info: {e}")
             return self.create_video_info_from_listing_only(listing_data)
 
+    def extract_views_from_crawl4ai(self, views_data):
+        """Extract views number from Crawl4AI span data, prioritizing bracket numbers"""
+        try:
+            if isinstance(views_data, str):
+                views_text = views_data
+            elif isinstance(views_data, list):
+                # Join all span texts
+                views_text = " ".join([str(v) for v in views_data if v])
+            else:
+                views_text = str(views_data)
+
+            self.logger.debug(f"Processing Crawl4AI views data: '{views_text}'")
+
+            # PRIORITY 1: Look for numbers in brackets/parentheses first: "2.4K (24,875)"
+            bracket_patterns = [
+                r'(\d+(?:,\d{3})*)\)',  # "24,875)" - number with commas before closing bracket
+                r'\((\d+(?:,\d{3})*)\)',  # "(24,875)" - full bracket pattern
+                r'(\d+(?:,\d{3})*)\]',    # "24,875]" - square bracket
+            ]
+
+            for pattern in bracket_patterns:
+                bracket_match = re.search(pattern, views_text)
+                if bracket_match:
+                    num_str = bracket_match.group(1).replace(',', '')
+                    try:
+                        views_num = int(num_str)
+                        self.logger.info(f"Views extracted from brackets: {views_num}")
+                        return views_num
+                    except ValueError:
+                        continue
+
+            # PRIORITY 2: Look for standard view patterns
+            views_patterns = [
+                r'(\d+(?:,\d{3})*)\s*views?',          # "24,875 views"
+                r'(\d+(?:\.\d+)?[KkMmBb])\s*views?',   # "2.4K views"
+                r'(\d+(?:,\d{3})*)',                   # Any number with commas
+                r'(\d+)'                               # Any number
+            ]
+
+            for pattern in views_patterns:
+                views_match = re.search(pattern, views_text, re.IGNORECASE)
+                if views_match:
+                    views_text_matched = views_match.group(1)
+                    views_num = self.parse_views_number(views_text_matched)
+                    if views_num is not None and views_num > 0:
+                        self.logger.info(f"Views extracted from pattern: {views_num}")
+                        return views_num
+
+            return 0
+
+        except Exception as e:
+            self.logger.error(f"Error extracting views from Crawl4AI data: {e}")
+            return 0
+
     def create_video_info_from_listing_only(self, listing_data):
         """Create video info structure from listing data only (fallback)"""
         try:
-            # CHANGE: Remove crawl4ai data fields and upload_date_epoch
             video_info = {
                 "video_id": listing_data.get("video_id", ""),
                 "url": listing_data.get("video_link", ""),
@@ -322,7 +385,7 @@ class VideoInfoExtractor:
             return 0
 
         # CHANGE: Prioritize number inside parentheses first: e.g. "2.4K (24875)"
-        paren_match = re.search(r'\((\d+)\)', views_text)
+        paren_match = re.search(r'\((\d+(?:,\d{3})*)\)', views_text)
         if paren_match:
             num = paren_match.group(1).replace(',', '')
             try:
@@ -374,25 +437,11 @@ class VideoInfoExtractor:
                         continue
 
                     # CHANGE: Check for views pattern in any row text - look for patterns like "2.4K (24875)"
-                    views_patterns = [
-                        r'(\d+(?:\.\d+)?[KkMmBb]?)\s*\((\d+)\)',  # "2.4K (24875)"
-                        r'(\d+(?:,\d{3})*)\s*views?',             # "24,875 views"
-                        r'(\d+(?:\.\d+)?[KkMmBb])\s*views?'       # "2.4K views"
-                    ]
-                    
-                    for pattern in views_patterns:
-                        views_match = re.search(pattern, row_text, re.IGNORECASE)
-                        if views_match:
-                            if len(views_match.groups()) > 1:  # Has parentheses group
-                                views_num = int(views_match.group(2))  # Use parentheses number
-                            else:
-                                views_text = views_match.group(1)
-                                views_num = self.parse_views_number(views_text)
-                            
-                            if views_num is not None:
-                                video_info["views"] = str(views_num)
-                                self.logger.info(f"Views extracted: '{row_text}' -> {video_info['views']}")
-                                break
+                    if not video_info.get("views") or video_info["views"] == "0":
+                        views_num = self.extract_views_from_crawl4ai(row_text)
+                        if views_num and views_num > 0:
+                            video_info["views"] = str(views_num)
+                            self.logger.info(f"Views extracted: '{row_text}' -> {video_info['views']}")
 
                     # Check which type of icon this row contains
                     has_calendar = len(row.find_elements(By.XPATH, ".//svg[contains(@class,'custom-calender')]")) > 0
@@ -424,7 +473,7 @@ class VideoInfoExtractor:
                     elif has_eye:
                         if not row_text:
                             continue
-                        views_num = self.parse_views_number(row_text)
+                        views_num = self.extract_views_from_crawl4ai(row_text)
                         if views_num is not None:
                             video_info["views"] = str(views_num)
                         self.logger.info(f"Views extracted: '{row_text}' -> {video_info['views']}")
@@ -464,7 +513,7 @@ class VideoInfoExtractor:
         if not video_info.get("uploader"):
             video_info["uploader"] = "Unknown"
 
-        # CHANGE: Use integer timestamp for upload_date, remove upload_date_epoch
+        # CHANGE: Use integer timestamp for upload_date
         if not video_info.get("upload_date") or video_info["upload_date"] == "Unknown":
             video_info["upload_date"] = int(datetime.now().timestamp() * 1000)
         elif "upload_date_epoch" in video_info and video_info["upload_date_epoch"]:
@@ -544,25 +593,10 @@ class VideoInfoExtractor:
                 video_info["duration"] = duration_match.group(1)
 
             # Look for views pattern - CHANGE: prioritize parentheses numbers
-            views_patterns = [
-                r'(\d+(?:\.\d+)?[KkMmBb]?)\s*\((\d+)\)',  # "2.4K (24875)"
-                r'(\d+(?:,\d{3})*(?:\.\d+)?)\s*[Kk]?\s*views?',
-                r'(\d+(?:,\d{3})*)\s*views?',
-                r'(\d+(?:\.\d+)?[KkMmBb])\s*views?'
-            ]
-
-            for pattern in views_patterns:
-                views_match = re.search(pattern, info_text, re.IGNORECASE)
-                if views_match:
-                    if len(views_match.groups()) > 1:  # Has parentheses group
-                        views_num = int(views_match.group(2))
-                    else:
-                        views_text = views_match.group(1)
-                        views_num = self.parse_views_number(views_text)
-                    
-                    if views_num is not None:
-                        video_info["views"] = str(views_num)
-                        break
+            if not video_info.get("views") or video_info["views"] == "0":
+                views_num = self.extract_views_from_crawl4ai(info_text)
+                if views_num and views_num > 0:
+                    video_info["views"] = str(views_num)
 
             # Look for upload date patterns if not already set
             if not video_info.get("upload_date"):
