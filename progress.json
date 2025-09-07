@@ -1,12 +1,7 @@
 {
-  "last_video_id": "4018265",
+  "last_video_id": "",
   "last_page": 1000,
-  "total_downloaded": 4,
-  "total_size_mb": 52.1880407333374,
-  "downloaded_videos": [
-    "4018321",
-    "4018289",
-    "4018285",
-    "4018265"
-  ]
+  "total_downloaded": 0,
+  "total_size_mb": 0,
+  "downloaded_videos": []
 }

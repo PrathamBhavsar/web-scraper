@@ -925,3 +925,60 @@ class VideoInfoExtractor:
         except Exception as e:
             self.logger.error(f"Error saving video info to JSON: {e}")
             return None
+
+    def merge_crawl4ai_data(self, video_info, crawl4ai_result):
+        """
+        ADDED METHOD: Merge Crawl4AI extraction results into video_info structure
+        This method should be added to your existing VideoInfoExtractor class
+        """
+        try:
+            if not crawl4ai_result:
+                self.logger.debug("No Crawl4AI result to merge")
+                return
+
+            # If crawl4ai_result is already a dict with the extracted data, use it directly
+            if isinstance(crawl4ai_result, dict):
+                detail_data = crawl4ai_result
+            else:
+                detail_data = {}
+
+            # Merge detail data into video_info
+            if detail_data:
+                # Extract uploader
+                if detail_data.get("uploaded_by") and not video_info.get("uploader"):
+                    video_info["uploader"] = detail_data["uploaded_by"].strip()
+
+                # Extract tags
+                if detail_data.get("tags") and not video_info.get("tags"):
+                    tags = self.parse_tags_from_text(detail_data["tags"])
+                    if tags:
+                        video_info["tags"] = tags
+
+                # Extract video source
+                if detail_data.get("video_source") and not video_info.get("video_src"):
+                    video_src = detail_data["video_source"]
+                    if not video_src.startswith('http'):
+                        video_src = urljoin(self.base_url, video_src)
+                    video_info["video_src"] = video_src
+
+                # Extract poster/thumbnail from video element
+                if detail_data.get("video_poster") and not video_info.get("thumbnail_src"):
+                    poster = detail_data["video_poster"]
+                    if not poster.startswith('http'):
+                        poster = urljoin(self.base_url, poster)
+                    video_info["thumbnail_src"] = poster
+
+                # Extract views from Crawl4AI data
+                if detail_data.get("views") and not video_info.get("views"):
+                    views_num = self.extract_views_from_crawl4ai(detail_data["views"])
+                    if views_num is not None:
+                        video_info["views"] = str(views_num)
+
+                # Parse info details for additional metadata
+                if detail_data.get("info_details"):
+                    self.parse_info_details_text(video_info, detail_data["info_details"])
+
+            self.logger.debug(f"Merged Crawl4AI data for video {video_info.get('video_id', 'unknown')}")
+
+        except Exception as e:
+            self.logger.error(f"Error merging Crawl4AI data: {e}")
