@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import dateutil
 import requests
 import logging
 from pathlib import Path
@@ -14,6 +15,7 @@ from urllib.parse import urljoin, urlparse
 import re
 import shutil
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 
 class VideoScrapper:
     def __init__(self):
@@ -84,7 +86,7 @@ class VideoScrapper:
         return default_config
     
     def setup_logging(self):
-        """Setup logging configuration"""
+        """Configure logging system with UTF-8 support"""
         log_level = getattr(logging, self.config["logging"]["log_level"].upper())
         
         # Create formatter
@@ -94,14 +96,36 @@ class VideoScrapper:
         self.logger = logging.getLogger('Rule34Scraper')
         self.logger.setLevel(log_level)
         
-        # Console handler
+        # Console handler with UTF-8 support for Windows
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
+        
+        # Fix encoding for Windows console
+        if hasattr(console_handler.stream, 'buffer'):
+            import sys
+            
+            class UTF8ConsoleHandler(logging.StreamHandler):
+                def emit(self, record):
+                    try:
+                        msg = self.format(record)
+                        # Use ASCII-safe replacement for problematic characters
+                        msg = msg.replace('→', '->')
+                        self.stream.write(msg + self.terminator)
+                        self.flush()
+                    except Exception:
+                        self.handleError(record)
+            
+            console_handler = UTF8ConsoleHandler()
+            console_handler.setFormatter(formatter)
+        
         self.logger.addHandler(console_handler)
         
         # File handler if enabled
         if self.config["logging"]["log_to_file"]:
-            file_handler = logging.FileHandler(self.config["logging"]["log_file_path"])
+            file_handler = logging.FileHandler(
+                self.config["logging"]["log_file_path"],
+                encoding='utf-8'  # Ensure file logging uses UTF-8
+            )
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
     

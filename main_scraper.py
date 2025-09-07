@@ -130,7 +130,7 @@ class VideoScraper:
             return False, 0.0
 
     def run(self):
-        """Main execution loop - smart resume or start from last page"""
+        """Main execution loop - smart resume with backwards-only scraping"""
         try:
             # Initial storage check
             limit_reached, usage_gb = self.check_storage_limits(force_check=True)
@@ -141,15 +141,11 @@ class VideoScraper:
             # Setup driver
             self.web_driver_manager.setup_driver()
             
-            # Determine starting strategy
-            start_page, direction = self.determine_start_strategy()
+            # Determine starting strategy (always backwards now)
+            start_page = self.determine_start_strategy()
             
-            if direction == "backwards":
-                self.logger.info(f"Starting fresh scrape from last page {start_page} working backwards")
-                asyncio.run(self.run_backwards_scrape(start_page))
-            else:
-                self.logger.info(f"Resuming scrape from page {start_page} working forwards")
-                asyncio.run(self.run_forward_scrape(start_page))
+            self.logger.info(f"Starting scrape from page {start_page} working backwards")
+            asyncio.run(self.run_backwards_scrape(start_page))
                 
         except KeyboardInterrupt:
             self.logger.info("Scraping interrupted by user (Ctrl+C)")
@@ -166,32 +162,36 @@ class VideoScraper:
             self.logger.info("Scraper finished")
 
     def determine_start_strategy(self):
-        """Determine whether to start fresh (backwards) or resume (forwards)"""
+        """
+        FIXED: Determine starting page - always go backwards to capture new content
+        """
         downloaded_videos = self.progress_tracker.get_downloaded_videos()
         
         if not downloaded_videos:
             # No downloads yet - start from last page backwards
             last_page = self.page_navigator.get_last_page_number()
-            self.logger.info(f"No previous downloads found. Starting from last page: {last_page}")
-            return last_page, "backwards"
+            self.logger.info(f"No previous downloads found. Starting from highest page: {last_page}")
+            return last_page
         else:
-            # Check if last downloaded video still exists
-            last_video_id = self.progress_tracker.get_last_downloaded_video()
-            if self.file_validator.validate_video_exists(last_video_id):
-                # Resume from next page after last completed page
-                last_page = self.progress_tracker.get_last_processed_page()
-                next_page = (last_page or 1) + 1
-                self.logger.info(f"Last downloaded video {last_video_id} exists. Resuming from page {next_page}")
-                return next_page, "forwards"
+            # Resume from the last processed page and go backwards
+            last_processed_page = self.progress_tracker.get_last_processed_page()
+            
+            if last_processed_page and last_processed_page >= 1:
+                self.logger.info(f"Resuming from last processed page {last_processed_page}, going backwards")
+                self.logger.info(f"This ensures we capture any new content added to earlier pages since last run")
+                return last_processed_page
             else:
-                # Last video missing - restart from last page backwards
+                # No valid last page or it's invalid, start from the beginning (highest page)
                 last_page = self.page_navigator.get_last_page_number()
-                self.logger.warning(f"Last downloaded video {last_video_id} missing. Restarting from page {last_page}")
-                return last_page, "backwards"
+                self.logger.info(f"No valid last processed page found. Starting from highest page: {last_page}")
+                return last_page
 
     async def run_backwards_scrape(self, start_page):
         """Run scrape from high page numbers going backwards to page 1"""
         current_page = start_page
+        
+        self.logger.info(f"Starting backwards scrape from page {start_page}")
+        self.logger.info(f"Will process pages: {start_page} -> {max(1, start_page-10)} -> ... -> 1")
         
         while current_page >= 1:
             # Check storage before each page
@@ -221,38 +221,7 @@ class VideoScraper:
                 current_page -= 1
                 continue
 
-    async def run_forward_scrape(self, start_page):
-        """Run scrape from start_page going forwards"""
-        current_page = start_page
-        max_page = self.page_navigator.get_last_page_number()
-        
-        while current_page <= max_page:
-            # Check storage before each page
-            limit_reached, usage_gb = self.check_storage_limits()
-            if limit_reached:
-                self.logger.info("Storage limit reached, stopping scrape")
-                break
-                
-            self.logger.info(f"\n{'='*80}")
-            self.logger.info(f"PROCESSING PAGE {current_page} (FORWARDS)")
-            self.logger.info(f"{'='*80}")
-            
-            try:
-                page_processed = await self._process_single_page(current_page)
-                if page_processed:
-                    self.progress_tracker.update_last_processed_page(current_page)
-                
-                current_page += 1
-                
-                # Wait between pages
-                if current_page <= max_page:
-                    await self._wait_between_pages()
-                    
-            except Exception as e:
-                self.logger.error(f"Error processing page {current_page}: {e}")
-                traceback.print_exc()
-                current_page += 1
-                continue
+        self.logger.info(f"Completed backwards scrape. Processed down to page {current_page + 1}")
 
     async def _process_single_page(self, page_num):
         """Process a single page using appropriate method"""
