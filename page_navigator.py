@@ -20,132 +20,46 @@ class PageNavigator:
     
     def get_last_page_number(self):
         """
-        FIXED: Get the actual last page number by finding the "Last" button in footer
+        RELIABLE: Directly find the 'Last' link via known XPath and extract its page number.
         """
-        self.logger.info("Starting to fetch last page number from website...")
-        
+        self.logger.info("Fetching last page number via direct XPath...")
+
         try:
-            # Step 1: Navigate to the main page
-            self.logger.info("Step 1: Navigating to main page...")
-            self.driver.get("https://rule34video.com/")
+            # Navigate to videos listing
+            videos_url = f"{self.base_url}/videos"
+            self.driver.get(videos_url)
             time.sleep(3)
-            
-            # Step 2: Handle age verification if present
-            self.logger.info("Step 2: Checking for age verification...")
-            age_verify_selectors = [
-                "button[type='submit']",
-                ".age-verify-btn",
-                "#age-verify",
-                "input[value='Enter']",
-                "button.btn-primary",
-                "form button[type='submit']"
-            ]
-            
-            age_verified = False
-            for selector in age_verify_selectors:
-                try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    if elements:
-                        element = elements[0]
-                        self.logger.info(f"Found age verification element: {selector}")
-                        self.driver.execute_script("arguments[0].click();", element)
-                        self.logger.info("Age verification clicked successfully")
-                        age_verified = True
-                        break
-                except Exception as e:
-                    self.logger.debug(f"Selector {selector} not found: {e}")
-                    continue
-            
-            if age_verified:
-                self.logger.info("Age verification completed, waiting for page load...")
-                time.sleep(5)
-            else:
-                self.logger.info("No age verification found or already bypassed")
-            
-            # Step 3: Navigate to videos page
-            self.logger.info("Step 3: Ensuring we're on the videos listing page...")
-            if "videos" not in self.driver.current_url.lower():
-                videos_url = "https://rule34video.com/videos"
-                self.driver.get(videos_url)
-                time.sleep(3)
-                self.logger.info(f"Navigated to videos page: {videos_url}")
-            
-            # Step 4: Scroll to bottom to reveal pagination
-            self.logger.info("Step 4: Scrolling to bottom to reveal pagination...")
+
+            # Bypass age gate
+            self.driver_manager.handle_age_verification()
+
+            # Ensure pagination container is loaded
             self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(3)
-            
-            # Step 5: Find the specific "Last" button using the exact XPath you provided
-            self.logger.info("Step 5: Looking for 'Last' button in pagination...")
-            
-            # Try the exact XPath first
-            exact_xpath = "/html/body/div/div[2]/div[2]/div[2]/div/div/div[4]/div[11]/a"
-            
-            try:
-                self.logger.info(f"Trying exact XPath: {exact_xpath}")
-                last_button = self.driver.find_element(By.XPATH, exact_xpath)
-                
-                if last_button:
-                    href = last_button.get_attribute("href")
-                    text = last_button.text
-                    self.logger.info(f"Found 'Last' button with href: {href}")
-                    self.logger.info(f"Button text: '{text}'")
-                    
-                    # Extract page number from href
-                    if href:
-                        # Extract the page number from URL like: https://rule34video.com/latest-updates/6540/
-                        page_numbers = re.findall(r'/(\d+)/', href)
-                        if page_numbers:
-                            last_page = int(page_numbers[-1])
-                            self.logger.info(f"FOUND LAST PAGE: {last_page}")
-                            return last_page
-                            
-            except Exception as e:
-                self.logger.warning(f"Exact XPath failed: {e}")
-            
-            # Fallback: Look for "Last" button with more generic selectors
-            self.logger.info("Step 6: Trying fallback selectors for 'Last' button...")
-            
-            fallback_selectors = [
-                "//a[contains(text(), 'Last')]",
-                "//a[@data-action='ajax'][contains(text(), 'Last')]",
-                "//a[contains(@href, 'latest-updates')][contains(text(), 'Last')]",
-                "//div[@id='custom_list_videos_most_recent_videos_pagination']//a[contains(text(), 'Last')]",
-                "//div[contains(@class, 'pagination')]//a[contains(text(), 'Last')]"
-            ]
-            
-            for selector in fallback_selectors:
-                try:
-                    self.logger.info(f"Trying fallback selector: {selector}")
-                    elements = self.driver.find_elements(By.XPATH, selector)
-                    
-                    if elements:
-                        for element in elements:
-                            href = element.get_attribute("href")
-                            text = element.text.strip()
-                            
-                            if href and text.lower() == "last":
-                                self.logger.info(f"Found 'Last' button with href: {href}")
-                                
-                                # Extract page number from href
-                                page_numbers = re.findall(r'/(\d+)/', href)
-                                if page_numbers:
-                                    last_page = int(page_numbers[-1])
-                                    self.logger.info(f"FOUND LAST PAGE: {last_page}")
-                                    return last_page
-                                    
-                except Exception as e:
-                    self.logger.debug(f"Fallback selector {selector} failed: {e}")
-                    continue
-            
-            # Final fallback
-            self.logger.warning("Could not find 'Last' button, using fallback value")
-            return 6000
-            
+            time.sleep(2)
+
+            # Use the exact XPath you provided
+            xpath = '//*[@id="custom_list_videos_most_recent_videos_pagination"]/div[11]/a'
+            self.logger.info(f"Looking for Last button at XPath: {xpath}")
+
+            element = self.driver.find_element(By.XPATH, xpath)
+            href = element.get_attribute("href")
+            if not href:
+                raise RuntimeError("Last button has no href")
+
+            # Extract the page number from URL
+            match = re.search(r'/latest-updates/(\d+)/', href)
+            if not match:
+                raise RuntimeError(f"Could not parse page number from href: {href}")
+
+            last = int(match.group(1))
+            self.logger.info(f"Determined last page = {last} (from Last button href)")
+            return last
+
         except Exception as e:
-            self.logger.error(f"Error getting last page number: {e}")
-            traceback.print_exc()
-            return 6000
+            self.logger.error(f"Error determining last page number: {e}")
+            # Fallback to sensible default
+            return 1000
+
 
     def _find_last_page_by_navigation(self):
         """

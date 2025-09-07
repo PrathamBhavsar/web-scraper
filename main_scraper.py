@@ -417,8 +417,11 @@ class VideoScraper:
                     
                     # Ensure it's in progress tracker
                     if not self.progress_tracker.is_video_downloaded(video_id):
-                        self.progress_tracker.update_download_stats(video_id, 0)
-                        self.logger.info(f"Added existing video {video_id} to progress tracker")
+                    # After download completes successfully:
+                        # Inside the loop, once video is saved and validated:
+                        file_size_mb = self.file_downloader.get_download_stats(video_file_path)
+                        self.progress_tracker.update_download_stats(video_id, file_size_mb, page_num)
+
                     
                     stats["skipped"] += 1
                     continue

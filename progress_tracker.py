@@ -30,16 +30,17 @@ class ProgressTracker:
         with open(self.progress_path, 'w') as f:
             json.dump(self.progress, f, indent=2)
 
-    def update_download_stats(self, video_id, file_size_mb):
-        """Update total downloaded count and size statistics"""
+    def update_download_stats(self, video_id, file_size_mb, page_num=None):
+        """Update total downloaded count, size, and optionally last page."""
         if video_id not in self.progress["downloaded_videos"]:
             self.progress["downloaded_videos"].append(video_id)
             self.progress["last_video_id"] = video_id
+            if page_num is not None:
+                self.progress["last_page"] = page_num
             self.progress["total_downloaded"] += 1
-        
-        self.progress["total_size_mb"] = self.progress.get("total_size_mb", 0) + file_size_mb
-        self.save_progress()
-
+            self.progress["total_size_mb"] = self.progress.get("total_size_mb", 0) + file_size_mb
+            self.save_progress()
+            
     def update_last_processed_page(self, page_num):
         """Update the last processed page number"""
         self.progress["last_page"] = page_num
