@@ -24,6 +24,7 @@ class FileDownloader:
     """
 
     def __init__(self, config: Dict[str, Any]):
+        self.current_page_num = None        
         self.config = config or {}
         self.base_url = self.config.get("general", {}).get("base_url", "https://rule34video.com")
         self.logger = logging.getLogger('Rule34Scraper')
@@ -251,54 +252,45 @@ class FileDownloader:
             self.logger.error(f"Unexpected error in download_file for {file_type} {filepath.name}: {e}")
             return False
 
-    def _idm_download(self, url: str, filepath: Path, progress_callback: Optional[Callable[[str, float], None]] = None) -> bool:
+    def _idm_download(self, url: str, filepath: Path, progress_callback: Optional[Callable]=None) -> bool:
         """
-        ENHANCED: Download file using IDM with proper queue management - works for videos AND thumbnails
+        Download file using IDM with proper queue management.
+        Updates progress.json with page number from self.current_page_num.
         """
         max_retries = self.config.get("download", {}).get("max_retries", 3)
         video_id = filepath.stem
-        file_type = "thumbnail" if filepath.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp'] else "video"
+        file_type = "video" if filepath.suffix.lower() == ".mp4" else "thumbnail"
 
         for attempt in range(1, max_retries + 1):
             try:
-                self.logger.info(f"IDM {file_type} download attempt {attempt}/{max_retries}: {filepath.name}")
-
-                # FIXED: Use the improved single file download method for both videos and thumbnails
+                self.logger.info(f"IDM download attempt {attempt}/{max_retries}: {filepath.name}")
                 if self.idm_downloader.download_single_file(url, filepath):
-                    # Verify the download
                     if self.verify_download_integrity(filepath):
-                        self.logger.info(f"IDM {file_type} download successful: {filepath.name}")
-
-                        # CRITICAL: Update progress tracker to prevent re-download (ONLY for videos)
+                        self.logger.info(f"IDM download successful: {filepath.name}")
+                        # Only update for videos
                         if file_type == "video":
                             file_size_mb = filepath.stat().st_size / (1024 * 1024)
                             from progress_tracker import ProgressTracker
-                            progress_tracker = ProgressTracker()
-                            progress_tracker.update_download_stats(video_id, file_size_mb)
-                            self.logger.info(f"Progress updated for video {video_id} - preventing future re-download")
-
+                            tracker = ProgressTracker()
+                            tracker.update_download_stats(video_id, file_size_mb, self.current_page_num)
                         return True
                     else:
-                        self.logger.warning(f"IDM {file_type} download failed integrity check: {filepath.name}")
-                        try:
-                            filepath.unlink(missing_ok=True)
-                        except Exception:
-                            pass
+                        self.logger.warning(f"Integrity check failed: {filepath.name}")
+                        filepath.unlink(missing_ok=True)
                 else:
-                    self.logger.warning(f"IDM {file_type} download failed for: {filepath.name}")
-
-                if attempt < max_retries:
-                    backoff = min(30, 2 ** attempt)  # Shorter backoff for thumbnails
-                    self.logger.info(f"Retrying IDM {file_type} download in {backoff} seconds...")
-                    time.sleep(backoff)
-
+                    self.logger.warning(f"IDM download failed for {filepath.name}")
             except Exception as e:
-                self.logger.error(f"IDM {file_type} download error (attempt {attempt}): {e}")
-                if attempt < max_retries:
-                    time.sleep(2 ** attempt)
+                self.logger.error(f"IDM download error on attempt {attempt}: {e}")
 
-        self.logger.error(f"All IDM {file_type} download attempts failed for: {filepath.name}")
+            # Retry backoff
+            if attempt < max_retries:
+                backoff = 2 ** attempt
+                self.logger.info(f"Retrying in {backoff}s...")
+                time.sleep(backoff)
+
+        self.logger.error(f"All IDM download attempts failed for {filepath.name}")
         return False
+
 
     # ------------------------
     # requests streaming download with storage monitoring

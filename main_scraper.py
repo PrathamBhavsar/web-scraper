@@ -321,159 +321,112 @@ class VideoScraper:
 
     async def process_page_parallel(self, page_num):
         """Process all videos from a single page using parallel Crawl4AI extraction"""
+        # Set page context
+        self.file_downloader.current_page_num = page_num
+
         self.logger.info(f"Starting PARALLEL scrape from page {page_num}")
-
-        # Get all video links from the page
         video_links = self.page_navigator.get_video_links_from_page(page_num)
-
         if not video_links:
             self.logger.error(f"No video links found on page {page_num}")
             return False
 
-        self.logger.info(f"Found {len(video_links)} videos to process on page {page_num}")
+        # Extract info in parallel
+        batch_results = await self.video_info_extractor.parallel_extract_multiple_videos(video_links)
 
-        # Pre-filter videos that already exist
-        videos_to_process = self.pre_filter_existing_videos(video_links)
-        
-        if not videos_to_process:
-            self.logger.info("All videos already exist and are valid, skipping page")
-            return True
+        stats = {"successful": 0, "failed": 0, "skipped": 0}
+        for video_url, video_info in zip(video_links, batch_results):
+            video_id = video_info.get("video_id") or self.smart_retry_extractor.extract_video_id_from_url(video_url)
+            try:
+                if not video_info.get("video_src"):
+                    self.logger.warning(f"No video source for {video_id}, skipping")
+                    stats["skipped"] += 1
+                    continue
 
-        self.logger.info(f"After filtering: {len(videos_to_process)} videos need processing")
+                # Download
+                video_dir = Path(self.config["general"]["download_path"]) / video_id
+                video_dir.mkdir(exist_ok=True, parents=True)
+                video_path = video_dir / f"{video_id}.mp4"
+                if self.file_downloader.download_video(video_info["video_src"], video_path):
+                    stats["successful"] += 1
+                    file_size_mb = self.file_downloader.get_download_stats(video_path)
+                    self.progress_tracker.update_download_stats(video_id, file_size_mb, page_num)
+                    self.logger.info(f"Successfully downloaded video {video_id}")
+                else:
+                    stats["failed"] += 1
+                    self.logger.error(f"Download failed for video {video_id}")
 
-        # Process videos in parallel batches
-        stats = {"successful": 0, "failed": 0, "skipped": len(video_links) - len(videos_to_process)}
+            except Exception as e:
+                self.logger.error(f"Error processing video {video_id}: {e}")
+                stats["failed"] += 1
 
-        # Split videos into batches for parallel processing
-        video_batches = self.split_into_batches(videos_to_process, self.parallel_batch_size)
-
-        for batch_num, batch in enumerate(video_batches, 1):
-            # Check storage before each batch
-            limit_reached, usage_gb = self.check_storage_limits()
-            if limit_reached:
-                self.logger.info("Storage limit reached during batch processing")
-                break
-
-            self.logger.info(f"\n{'='*60}")
-            self.logger.info(f"PROCESSING BATCH {batch_num}/{len(video_batches)} ({len(batch)} videos)")
-            self.logger.info(f"{'='*60}")
-
-            # Extract video information in parallel using Crawl4AI
-            batch_results = await self.video_info_extractor.parallel_extract_multiple_videos(batch)
-
-            # Process each video result (download and validation)
-            await self.process_batch_results(batch, batch_results, stats, batch_num)
-
-            # Wait between batches to be respectful
-            if batch_num < len(video_batches):
-                self.logger.info(f"Waiting between batches...")
-                await asyncio.sleep(self.config["general"]["delay_between_requests"] / 1000)
-
-        # Generate final report
+        # Final report for this page
         self.generate_final_report(page_num, video_links, stats)
         return True
 
+
     def process_page_sequential(self, page_num):
         """Traditional sequential processing (original method enhanced)"""
-        self.logger.info(f"Starting SEQUENTIAL scrape from page {page_num}")
+        # Set the page context so FileDownloader can include it in updates
+        self.file_downloader.current_page_num = page_num
 
+        self.logger.info(f"Starting SEQUENTIAL scrape from page {page_num}")
         # Get all video links from the page
         video_links = self.page_navigator.get_video_links_from_page(page_num)
-
         if not video_links:
             self.logger.error(f"No video links found on page {page_num}")
             return False
 
-        self.logger.info(f"Found {len(video_links)} videos to process on page {page_num}")
-
-        # Process each video
         stats = {"successful": 0, "failed": 0, "skipped": 0}
-
-        for i, video_url in enumerate(video_links, 1):
+        for i, video_url in enumerate(video_links, start=1):
             self.logger.info(f"\n{'-'*50}")
             self.logger.info(f"Processing video {i}/{len(video_links)} on page {page_num}")
             self.logger.info(f"URL: {video_url}")
             self.logger.info(f"{'-'*50}")
 
             try:
-                # Check storage limit before each video
-                limit_reached, usage_gb = self.check_storage_limits()
-                if limit_reached:
-                    self.logger.info(f"Storage limit reached before video {i}. Usage: {usage_gb:.2f} GB")
-                    break
-
-                # Extract video ID for pre-check
+                # Pre-check downloaded
                 video_id = self.smart_retry_extractor.extract_video_id_from_url(video_url)
-
-                # CRITICAL CHECK: Skip if already downloaded (check progress.json first)
                 if self.progress_tracker.is_video_downloaded(video_id):
-                    self.logger.info(f"Video {video_id} already downloaded (found in progress.json), skipping")
+                    self.logger.info(f"Video {video_id} already downloaded, skipping")
                     stats["skipped"] += 1
                     continue
 
-                # DOUBLE CHECK: Validate video folder exists and is complete
-                if self.file_validator.validate_video_folder(video_id):
-                    self.logger.info(f"Video {video_id} already exists and is valid, skipping")
-                    
-                    # Ensure it's in progress tracker
-                    if not self.progress_tracker.is_video_downloaded(video_id):
-                    # After download completes successfully:
-                        # Inside the loop, once video is saved and validated:
-                        file_size_mb = self.file_downloader.get_download_stats(video_file_path)
-                        self.progress_tracker.update_download_stats(video_id, file_size_mb, page_num)
-
-                    
-                    stats["skipped"] += 1
-                    continue
-
-                self.logger.info(f"Video {video_id} not found in progress - will download")
-
-                # Extract video information
+                # Extract video info
                 video_info = self.video_info_extractor.extract_video_info(video_url)
-
                 if not video_info:
-                    self.logger.error(f"Failed to extract valid info for video {i}")
+                    self.logger.error(f"Failed to extract info for video {video_id}")
                     stats["failed"] += 1
                     continue
 
-                # Log extracted information
-                self._log_video_info_summary(video_info)
-
-                # Save video info to JSON
-                self.save_video_info_json(video_info)
-
-                # Process (download) the video with validation
-                if video_info.get("video_src"):
-                    if self.video_processor.process_video(video_info):
-                        stats["successful"] += 1
-                        self.logger.info(f"Successfully processed and validated video {i}/{len(video_links)}")
-
-                        # Check storage after successful download
-                        limit_reached, usage_gb = self.check_storage_limits(force_check=True)
-                        if limit_reached:
-                            self.logger.info(f"Storage limit reached after downloading video {i}")
-                            break
-                    else:
-                        stats["failed"] += 1
-                        self.logger.error(f"Failed to process video {i}/{len(video_links)} after all retries")
+                # Download video
+                video_dir = Path(self.config["general"]["download_path"]) / video_id
+                video_dir.mkdir(exist_ok=True, parents=True)
+                video_path = video_dir / f"{video_id}.mp4"
+                if self.file_downloader.download_video(video_info["video_src"], video_path):
+                    # Success: update stats and progress.json
+                    stats["successful"] += 1
+                    file_size_mb = self.file_downloader.get_download_stats(video_path)
+                    self.progress_tracker.update_download_stats(video_id, file_size_mb, page_num)
+                    self.logger.info(f"Successfully downloaded video {video_id}")
                 else:
-                    self.logger.warning(f"No video source found for video {i}/{len(video_links)}")
                     stats["failed"] += 1
-
-                # Delay between videos
-                self._wait_between_videos()
+                    self.logger.error(f"Download failed for video {video_id}")
 
             except Exception as e:
                 self.logger.error(f"Unexpected error processing video {i}: {e}")
-                self.logger.error(f"Error checking video status for {video_url}: {e}")
                 stats["failed"] += 1
-                traceback.print_exc()
-                # Continue with download to be safe
-                continue
 
-        # Generate report
+        # Summary
         self.generate_final_report(page_num, video_links, stats)
         return True
+
+    def set_current_page_context(self, page_num):
+        """Set current page context for all downloaders"""
+        self.file_downloader.current_page_num = page_num
+        # Also set for video processor if it exists
+        if hasattr(self.video_processor, 'file_downloader'):
+            self.video_processor.file_downloader.current_page_num = page_num
+
 
     def pre_filter_existing_videos(self, video_links):
         """Filter out videos that already exist and are valid"""
