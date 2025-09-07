@@ -29,7 +29,7 @@ class ConfigManager:
                 "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             },
             "download": {
-                "download_method": "idm", 
+                "download_method": "direct", 
                 "idm_path": "C:\\Program Files (x86)\\Internet Download Manager\\idman.exe",
                 "max_retries": 2,
                 "connect_timeout_seconds": 10,

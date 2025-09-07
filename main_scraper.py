@@ -5,6 +5,7 @@ import logging
 import traceback
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+
 from config_manager import ConfigManager
 from progress_tracker import ProgressTracker
 from web_driver_manager import WebDriverManager
@@ -47,9 +48,9 @@ class VideoScraper:
 
         # Storage management
         self.max_storage_gb = self.config.get("general", {}).get("max_storage_gb", 100)
-        self.warning_threshold = 0.9  # 90% threshold for warning
+        self.warning_threshold = 0.9 # 90% threshold for warning
         self.last_storage_check = 0
-        self.storage_check_interval = 60  # Check storage every 60 seconds
+        self.storage_check_interval = 60 # Check storage every 60 seconds
 
         # Log download method status and IDM availability
         download_method = self.config.get("download", {}).get("download_method", "direct")
@@ -64,7 +65,6 @@ class VideoScraper:
                 self.logger.warning(f"Please check IDM installation at: {self.file_downloader.idm_downloader.idm_path}")
         else:
             self.logger.info(f"Using direct download method")
-
 
     def setup_logging(self):
         """Configure logging system"""
@@ -121,25 +121,25 @@ class VideoScraper:
             current_usage_gb = current_usage_bytes / (1024**3)
             max_storage_bytes = self.max_storage_gb * 1024**3
             usage_percentage = (current_usage_gb / self.max_storage_gb) * 100
-
+            
             # Log current usage periodically
             self.logger.info(f"Storage usage: {current_usage_gb:.2f} GB / {self.max_storage_gb} GB ({usage_percentage:.1f}%)")
-
+            
             # Check for 90% warning threshold
             if current_usage_gb >= (self.max_storage_gb * self.warning_threshold):
                 if not hasattr(self, '_warning_logged') or not self._warning_logged:
                     self.logger.warning(f"WARNING: Storage usage is above 90%! Current: {current_usage_gb:.2f} GB ({usage_percentage:.1f}%)")
                     self.logger.warning(f"Approaching storage limit of {self.max_storage_gb} GB. Consider increasing max_storage_gb in config.json")
                     self._warning_logged = True
-
+            
             # Check if limit is reached
             if current_usage_bytes >= max_storage_bytes:
                 self.logger.error(f"STORAGE LIMIT REACHED: {current_usage_gb:.2f} GB / {self.max_storage_gb} GB")
                 self.logger.error("Stopping scraper to prevent exceeding storage limit")
                 return True, current_usage_gb
-
+            
             return False, current_usage_gb
-
+            
         except Exception as e:
             self.logger.error(f"Error checking storage limits: {e}")
             return False, 0.0
@@ -155,13 +155,13 @@ class VideoScraper:
 
             # Setup driver
             self.web_driver_manager.setup_driver()
-            
+
             # Determine starting strategy (always backwards now)
             start_page = self.determine_start_strategy()
-            
             self.logger.info(f"Starting scrape from page {start_page} working backwards")
+
             asyncio.run(self.run_backwards_scrape(start_page))
-                
+
         except KeyboardInterrupt:
             self.logger.info("Scraping interrupted by user (Ctrl+C)")
             current_usage = self.get_download_folder_size()
@@ -178,35 +178,93 @@ class VideoScraper:
 
     def determine_start_strategy(self):
         """
-        FIXED: Determine starting page - always go backwards to capture new content
+        FIXED & BULLETPROOF: Determine starting page with detailed logging
+        GUARANTEE: When no downloads exist, ALWAYS start from last page
         """
+        self.logger.info("=" * 80)
+        self.logger.info("DETERMINING START STRATEGY")
+        self.logger.info("=" * 80)
+        
+        # Step 1: Check progress.json for downloaded videos
+        self.logger.info("Step 1: Checking progress.json for existing downloads...")
         downloaded_videos = self.progress_tracker.get_downloaded_videos()
         
-        if not downloaded_videos:
-            # No downloads yet - start from last page backwards
-            last_page = self.page_navigator.get_last_page_number()
-            self.logger.info(f"No previous downloads found. Starting from highest page: {last_page}")
-            return last_page
+        if not downloaded_videos or len(downloaded_videos) == 0:
+            self.logger.info("RESULT: No downloads found in progress.json")
+            self.logger.info("DECISION: Starting fresh scrape - will begin from HIGHEST page number")
+            
+            # Get last page from website
+            self.logger.info("Step 2: Fetching highest page number from website...")
+            try:
+                last_page = self.page_navigator.get_last_page_number()
+                self.logger.info(f"WEBSITE REPORTS: Highest page number is {last_page}")
+                
+                if last_page and last_page >= 1:
+                    self.logger.info(f"CONFIRMED: Starting from page {last_page} (highest page)")
+                    self.logger.info(f"STRATEGY: Will scrape backwards from {last_page} -> {last_page-1} -> ... -> 1")
+                    self.logger.info("=" * 80)
+                    return last_page
+                else:
+                    self.logger.error(f"ERROR: Invalid last page number: {last_page}")
+                    self.logger.info("FALLBACK: Using page 1000 as default starting point")
+                    self.logger.info("=" * 80)
+                    return 1000
+                    
+            except Exception as e:
+                self.logger.error(f"ERROR: Could not fetch last page number: {e}")
+                self.logger.info("FALLBACK: Using page 1000 as default starting point")
+                self.logger.info("=" * 80)
+                return 1000
+        
         else:
-            # Resume from the last processed page and go backwards
+            self.logger.info(f"RESULT: Found {len(downloaded_videos)} existing downloads in progress.json")
+            
+            # Step 2: Check last processed page
+            self.logger.info("Step 2: Checking last processed page...")
             last_processed_page = self.progress_tracker.get_last_processed_page()
             
             if last_processed_page and last_processed_page >= 1:
-                self.logger.info(f"Resuming from last processed page {last_processed_page}, going backwards")
-                self.logger.info(f"This ensures we capture any new content added to earlier pages since last run")
+                self.logger.info(f"FOUND: Last processed page was {last_processed_page}")
+                self.logger.info(f"DECISION: Resuming from page {last_processed_page} going backwards")
+                self.logger.info(f"STRATEGY: Will scrape backwards from {last_processed_page} -> {last_processed_page-1} -> ... -> 1")
+                self.logger.info("REASON: This ensures we capture any new content added since last run")
+                self.logger.info("=" * 80)
                 return last_processed_page
             else:
-                # No valid last page or it's invalid, start from the beginning (highest page)
-                last_page = self.page_navigator.get_last_page_number()
-                self.logger.info(f"No valid last processed page found. Starting from highest page: {last_page}")
-                return last_page
+                self.logger.info(f"WARNING: Invalid or missing last processed page: {last_processed_page}")
+                self.logger.info("DECISION: Falling back to fresh start from highest page")
+                
+                # Get last page from website as fallback
+                self.logger.info("Step 3: Fetching highest page number as fallback...")
+                try:
+                    last_page = self.page_navigator.get_last_page_number()
+                    self.logger.info(f"WEBSITE REPORTS: Highest page number is {last_page}")
+                    
+                    if last_page and last_page >= 1:
+                        self.logger.info(f"CONFIRMED: Starting from page {last_page} (highest page)")
+                        self.logger.info(f"STRATEGY: Will scrape backwards from {last_page} -> {last_page-1} -> ... -> 1")
+                        self.logger.info("=" * 80)
+                        return last_page
+                    else:
+                        self.logger.error(f"ERROR: Invalid last page number: {last_page}")
+                        self.logger.info("FALLBACK: Using page 1000 as default starting point")
+                        self.logger.info("=" * 80)
+                        return 1000
+                        
+                except Exception as e:
+                    self.logger.error(f"ERROR: Could not fetch last page number: {e}")
+                    self.logger.info("FALLBACK: Using page 1000 as default starting point")
+                    self.logger.info("=" * 80)
+                    return 1000
 
     async def run_backwards_scrape(self, start_page):
         """Run scrape from high page numbers going backwards to page 1"""
         current_page = start_page
         
-        self.logger.info(f"Starting backwards scrape from page {start_page}")
-        self.logger.info(f"Will process pages: {start_page} -> {max(1, start_page-10)} -> ... -> 1")
+        self.logger.info(f"STARTING BACKWARDS SCRAPE")
+        self.logger.info(f"Begin page: {start_page}")
+        self.logger.info(f"Direction: BACKWARDS (high to low)")
+        self.logger.info(f"Page sequence example: {start_page} -> {max(1, start_page-1)} -> {max(1, start_page-2)} -> ... -> 1")
         
         while current_page >= 1:
             # Check storage before each page
@@ -214,29 +272,39 @@ class VideoScraper:
             if limit_reached:
                 self.logger.info("Storage limit reached, stopping scrape")
                 break
-                
+
             self.logger.info(f"\n{'='*80}")
-            self.logger.info(f"PROCESSING PAGE {current_page} (BACKWARDS)")
+            self.logger.info(f"PROCESSING PAGE {current_page} (BACKWARDS SCRAPE)")
+            self.logger.info(f"Remaining pages to process: {current_page} pages")
             self.logger.info(f"{'='*80}")
-            
+
             try:
                 page_processed = await self._process_single_page(current_page)
+                
                 if page_processed:
                     self.progress_tracker.update_last_processed_page(current_page)
-                
+                    self.logger.info(f"Page {current_page} completed successfully")
+                else:
+                    self.logger.warning(f"Page {current_page} processing failed")
+
+                # Move to previous page (backwards)
                 current_page -= 1
-                
+                self.logger.info(f"Moving backwards: Next page will be {current_page if current_page >= 1 else 'COMPLETE'}")
+
                 # Wait between pages
                 if current_page >= 1:
                     await self._wait_between_pages()
-                    
+
             except Exception as e:
                 self.logger.error(f"Error processing page {current_page}: {e}")
                 traceback.print_exc()
                 current_page -= 1
                 continue
 
-        self.logger.info(f"Completed backwards scrape. Processed down to page {current_page + 1}")
+        final_page = current_page + 1
+        self.logger.info(f"BACKWARDS SCRAPE COMPLETED")
+        self.logger.info(f"Last page processed: {final_page}")
+        self.logger.info(f"Total pages processed: {start_page - final_page + 1}")
 
     async def _process_single_page(self, page_num):
         """Process a single page using appropriate method"""
@@ -257,6 +325,7 @@ class VideoScraper:
 
         # Get all video links from the page
         video_links = self.page_navigator.get_video_links_from_page(page_num)
+
         if not video_links:
             self.logger.error(f"No video links found on page {page_num}")
             return False
@@ -265,6 +334,7 @@ class VideoScraper:
 
         # Pre-filter videos that already exist
         videos_to_process = self.pre_filter_existing_videos(video_links)
+        
         if not videos_to_process:
             self.logger.info("All videos already exist and are valid, skipping page")
             return True
@@ -283,7 +353,7 @@ class VideoScraper:
             if limit_reached:
                 self.logger.info("Storage limit reached during batch processing")
                 break
-                
+
             self.logger.info(f"\n{'='*60}")
             self.logger.info(f"PROCESSING BATCH {batch_num}/{len(video_batches)} ({len(batch)} videos)")
             self.logger.info(f"{'='*60}")
@@ -344,10 +414,12 @@ class VideoScraper:
                 # DOUBLE CHECK: Validate video folder exists and is complete
                 if self.file_validator.validate_video_folder(video_id):
                     self.logger.info(f"Video {video_id} already exists and is valid, skipping")
+                    
                     # Ensure it's in progress tracker
                     if not self.progress_tracker.is_video_downloaded(video_id):
                         self.progress_tracker.update_download_stats(video_id, 0)
                         self.logger.info(f"Added existing video {video_id} to progress tracker")
+                    
                     stats["skipped"] += 1
                     continue
 
@@ -403,16 +475,20 @@ class VideoScraper:
     def pre_filter_existing_videos(self, video_links):
         """Filter out videos that already exist and are valid"""
         videos_to_process = []
+
         for video_url in video_links:
             try:
                 video_id = self.smart_retry_extractor.extract_video_id_from_url(video_url)
+
                 if not self.file_validator.validate_video_folder(video_id):
                     videos_to_process.append(video_url)
                 else:
                     self.progress_tracker.update_download_stats(video_id, 0)
+
             except Exception as e:
                 self.logger.warning(f"Error pre-filtering video {video_url}: {e}")
-                videos_to_process.append(video_url)  # Include it to be safe
+                videos_to_process.append(video_url) # Include it to be safe
+
         return videos_to_process
 
     def split_into_batches(self, items, batch_size):
@@ -438,6 +514,7 @@ class VideoScraper:
 
                 # Create complete video info from Crawl4AI result
                 video_info = await self.create_complete_video_info(video_url, crawl4ai_result)
+
                 if not video_info:
                     self.logger.error(f"Failed to create complete video info for batch item {i+1}")
                     stats["failed"] += 1
@@ -463,7 +540,7 @@ class VideoScraper:
                     if success:
                         stats["successful"] += 1
                         self.logger.info(f"Successfully processed batch item {i+1}")
-                        
+
                         # Check storage after successful download
                         limit_reached, usage_gb = self.check_storage_limits(force_check=True)
                         if limit_reached:
@@ -516,6 +593,7 @@ class VideoScraper:
             # If Crawl4AI data is incomplete, supplement with Selenium (in thread pool)
             if not self.video_info_extractor.is_video_info_complete(video_info):
                 self.logger.info("Supplementing Crawl4AI data with Selenium extraction")
+                
                 # Use thread pool for Selenium operations to avoid blocking async loop
                 loop = asyncio.get_event_loop()
                 with ThreadPoolExecutor() as executor:
@@ -558,15 +636,15 @@ class VideoScraper:
     def _log_video_info_summary(self, video_info):
         """Log summary of extracted video information"""
         self.logger.info(f"Video Info Extracted and Validated:")
-        self.logger.info(f"  ID: {video_info['video_id']}")
-        self.logger.info(f"  Title: {video_info['title']}")
-        self.logger.info(f"  Duration: {video_info['duration']}")
-        self.logger.info(f"  Views: {video_info['views']}")
-        self.logger.info(f"  Upload Date: {video_info['upload_date']} (Epoch: {video_info.get('upload_date_epoch')})")
-        self.logger.info(f"  Tags: {len(video_info['tags'])} tags")
-        self.logger.info(f"  Has video source: {'Yes' if video_info.get('video_src') else 'No'}")
-        self.logger.info(f"  Has thumbnail: {'Yes' if video_info.get('thumbnail_src') else 'No'}")
-        self.logger.info(f"  Crawl4AI data: {'Available' if video_info.get('crawl4ai_data') else 'Not available'}")
+        self.logger.info(f" ID: {video_info['video_id']}")
+        self.logger.info(f" Title: {video_info['title']}")
+        self.logger.info(f" Duration: {video_info['duration']}")
+        self.logger.info(f" Views: {video_info['views']}")
+        self.logger.info(f" Upload Date: {video_info['upload_date']} (Epoch: {video_info.get('upload_date_epoch')})")
+        self.logger.info(f" Tags: {len(video_info['tags'])} tags")
+        self.logger.info(f" Has video source: {'Yes' if video_info.get('video_src') else 'No'}")
+        self.logger.info(f" Has thumbnail: {'Yes' if video_info.get('thumbnail_src') else 'No'}")
+        self.logger.info(f" Crawl4AI data: {'Available' if video_info.get('crawl4ai_data') else 'Not available'}")
 
     def _wait_between_videos(self):
         """Wait between video processing to be respectful"""
@@ -585,6 +663,7 @@ class VideoScraper:
         self.logger.info(f"Processing Mode: {self.processing_mode.upper()}")
         if self.use_parallel_processing:
             self.logger.info(f"Parallel Batch Size: {self.parallel_batch_size}")
+
         self.logger.info(f"Total videos found: {len(video_links)}")
         self.logger.info(f"Successfully downloaded: {stats['successful']}")
         self.logger.info(f"Already existed (skipped): {stats['skipped']}")
@@ -613,5 +692,6 @@ if __name__ == "__main__":
     os.makedirs("C:\\scraper_downloads", exist_ok=True)
     
     scraper = VideoScraper()
+    
     # Run with smart resume capability
     scraper.run()
