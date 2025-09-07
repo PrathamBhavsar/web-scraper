@@ -22,14 +22,23 @@ class VideoProcessor:
             return False
 
         video_id = video_info["video_id"]
+        
+        # CRITICAL CHECK: Verify if already downloaded before any processing
+        if self.progress_tracker.is_video_downloaded(video_id):
+            self.logger.info(f"SKIPPING: Video {video_id} already in progress.json")
+            return True
+        
+        if self.file_validator.validate_video_folder(video_id):
+            self.logger.info(f"SKIPPING: Video {video_id} folder exists and is valid")
+            # Ensure it's in progress tracker
+            if not self.progress_tracker.is_video_downloaded(video_id):
+                self.progress_tracker.update_download_stats(video_id, 0)
+            return True
+
+        self.logger.info(f"PROCESSING: Video {video_id} - folder not found, will download")
+        
         download_path = Path(self.config.get("general", {}).get("download_path", "C:\\scraper_downloads\\"))
         video_dir = download_path / video_id
-
-        # Check if video already exists and is completely valid
-        if self.file_validator.validate_video_folder(video_id):
-            self.logger.info(f"Video {video_id} already exists and is valid, skipping")
-            self.progress_tracker.update_download_stats(video_id, 0)
-            return True
 
         # Clean up any existing incomplete folder before starting
         if video_dir.exists():
@@ -37,6 +46,7 @@ class VideoProcessor:
 
         # Retry logic for the entire video processing
         return self.retry_video_processing(video_info, max_retries)
+
 
     def retry_video_processing(self, video_info, max_retries):
         """Retry logic for video processing with safe config access"""
@@ -164,7 +174,6 @@ class VideoProcessor:
                 thumbnail_downloaded = self.file_downloader.download_thumbnail(
                     video_info["thumbnail_src"], video_id, video_dir
                 )
-
                 if thumbnail_downloaded:
                     self.logger.info(f"Thumbnail downloaded for {video_id}")
                 else:
@@ -210,20 +219,31 @@ class VideoProcessor:
             return False
 
     def _update_success_progress(self, video_info, video_dir):
-        """Update progress tracking after successful processing"""
+        """Update progress tracking after successful processing - CRITICAL for preventing re-downloads"""
         try:
             video_id = video_info["video_id"]
             video_file_path = video_dir / f"{video_id}.mp4"
-
+            
             file_size_mb = 0
             if video_file_path.exists():
                 file_size_mb = video_file_path.stat().st_size / (1024 * 1024)
 
+            # DOUBLE CHECK: Ensure video is marked as downloaded in progress tracker
             self.progress_tracker.update_download_stats(video_id, file_size_mb)
+            
+            # Additional verification
+            if video_id not in self.progress_tracker.get_downloaded_videos():
+                self.logger.error(f"CRITICAL: Video {video_id} not found in downloaded list after update!")
+                # Force add it
+                self.progress_tracker.progress["downloaded_videos"].append(video_id)
+                self.progress_tracker.save_progress()
+            
             self.logger.info(f"Successfully processed video: {video_id} ({file_size_mb:.2f} MB)")
-
+            self.logger.info(f"Video {video_id} marked as downloaded - will be skipped in future runs")
+            
         except Exception as e:
             self.logger.error(f"Error updating progress: {e}")
+
 
     def cleanup_incomplete_folder(self, video_id):
         """Remove incomplete video folders"""

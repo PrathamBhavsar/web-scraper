@@ -51,6 +51,21 @@ class VideoScraper:
         self.last_storage_check = 0
         self.storage_check_interval = 60  # Check storage every 60 seconds
 
+        # Log download method status and IDM availability
+        download_method = self.config.get("download", {}).get("download_method", "direct")
+        self.logger.info(f"Download method configured: {download_method}")
+
+        if download_method == "idm":
+            if self.file_downloader.idm_downloader.is_idm_available():
+                idm_version = self.file_downloader.idm_downloader.get_idm_version()
+                self.logger.info(f"IDM status: Available - {idm_version}")
+            else:
+                self.logger.warning("IDM method selected but IDM not available - downloads will fail!")
+                self.logger.warning(f"Please check IDM installation at: {self.file_downloader.idm_downloader.idm_path}")
+        else:
+            self.logger.info(f"Using direct download method")
+
+
     def setup_logging(self):
         """Configure logging system"""
         log_level = getattr(logging, self.config["logging"]["log_level"].upper())
@@ -294,6 +309,7 @@ class VideoScraper:
 
         # Get all video links from the page
         video_links = self.page_navigator.get_video_links_from_page(page_num)
+
         if not video_links:
             self.logger.error(f"No video links found on page {page_num}")
             return False
@@ -319,15 +335,27 @@ class VideoScraper:
                 # Extract video ID for pre-check
                 video_id = self.smart_retry_extractor.extract_video_id_from_url(video_url)
 
-                # Check if already processed and valid
-                if self.file_validator.validate_video_folder(video_id):
-                    self.logger.info(f"Video {video_id} already exists and is valid, skipping")
-                    self.progress_tracker.update_download_stats(video_id, 0)
+                # CRITICAL CHECK: Skip if already downloaded (check progress.json first)
+                if self.progress_tracker.is_video_downloaded(video_id):
+                    self.logger.info(f"Video {video_id} already downloaded (found in progress.json), skipping")
                     stats["skipped"] += 1
                     continue
 
+                # DOUBLE CHECK: Validate video folder exists and is complete
+                if self.file_validator.validate_video_folder(video_id):
+                    self.logger.info(f"Video {video_id} already exists and is valid, skipping")
+                    # Ensure it's in progress tracker
+                    if not self.progress_tracker.is_video_downloaded(video_id):
+                        self.progress_tracker.update_download_stats(video_id, 0)
+                        self.logger.info(f"Added existing video {video_id} to progress tracker")
+                    stats["skipped"] += 1
+                    continue
+
+                self.logger.info(f"Video {video_id} not found in progress - will download")
+
                 # Extract video information
                 video_info = self.video_info_extractor.extract_video_info(video_url)
+
                 if not video_info:
                     self.logger.error(f"Failed to extract valid info for video {i}")
                     stats["failed"] += 1
@@ -344,7 +372,7 @@ class VideoScraper:
                     if self.video_processor.process_video(video_info):
                         stats["successful"] += 1
                         self.logger.info(f"Successfully processed and validated video {i}/{len(video_links)}")
-                        
+
                         # Check storage after successful download
                         limit_reached, usage_gb = self.check_storage_limits(force_check=True)
                         if limit_reached:
@@ -362,8 +390,10 @@ class VideoScraper:
 
             except Exception as e:
                 self.logger.error(f"Unexpected error processing video {i}: {e}")
+                self.logger.error(f"Error checking video status for {video_url}: {e}")
                 stats["failed"] += 1
                 traceback.print_exc()
+                # Continue with download to be safe
                 continue
 
         # Generate report

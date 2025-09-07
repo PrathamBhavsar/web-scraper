@@ -5,38 +5,34 @@ import time
 import logging
 import requests
 import threading
-import asyncio
 import shutil
-import tempfile
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import List, Optional, Callable, Dict, Any
+from typing import Optional, Callable, Dict, Any
+from idm_downloader import IDMDownloader
+from file_validator import FileValidator  # Add this if missing
 
 # Retry utilities
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-# Optional crawl4ai imports will be attempted at runtime. If not present, code will fallback.
-try:
-    from crawl4ai import AsyncWebCrawler
-    from crawl4ai.async_configs import BrowserConfig, CrawlerRunConfig
-    CRAWL4AI_AVAILABLE = True
-except Exception:
-    AsyncWebCrawler = None
-    BrowserConfig = None
-    CrawlerRunConfig = None
-    CRAWL4AI_AVAILABLE = False
-
 class FileDownloader:
     """
-    Improved FileDownloader with storage limit checking and proper integrity validation
+    FileDownloader with storage limit checking and proper integrity validation
+    Uses only requests-based downloads (Crawl4AI removed entirely)
     """
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config or {}
         self.base_url = self.config.get("general", {}).get("base_url", "https://rule34video.com")
         self.logger = logging.getLogger('Rule34Scraper')
+
+        # CRITICAL FIX: Initialize file validator component
+        self.file_validator = FileValidator(config)
+
+        # Initialize IDM downloader
+        self.idm_downloader = IDMDownloader(config)
 
         # Ensure download directory exists
         download_path = Path(self.config.get("general", {}).get("download_path", "C:\\scraper_downloads\\"))
@@ -50,6 +46,19 @@ class FileDownloader:
         # Storage limits
         self.max_storage_gb = self.config.get("general", {}).get("max_storage_gb", 100)
         self.max_storage_bytes = self.max_storage_gb * 1024**3
+
+        # Check download method and IDM availability
+        self.download_method = self.config.get("download", {}).get("download_method", "direct")
+
+        if self.download_method == "idm":
+            if self.idm_downloader.is_idm_available():
+                idm_version = self.idm_downloader.get_idm_version()
+                self.logger.info(f"IDM download method selected. {idm_version or 'IDM Available'}")
+            else:
+                self.logger.error("IDM download method selected but IDM is not available!")
+                self.logger.error(f"Please install IDM or check path: {self.idm_downloader.idm_path}")
+
+        self.logger.info("FileDownloader initialized successfully with file_validator")
 
     def _check_storage_space_before_download(self, expected_size_bytes=None):
         """Check if we have enough storage space before starting download"""
@@ -163,56 +172,111 @@ class FileDownloader:
         return None
 
     # ------------------------
-    # Main download_file (with storage checking)
+    # Main download_file (CRAWL4AI REMOVED - requests only)
     # ------------------------
 
     def download_file(self, url: str, filepath: Path, progress_callback: Optional[Callable[[str, float], None]] = None) -> bool:
         """
-        Download a single file and verify it. Checks storage limits before starting.
+        Download a single file with verification and strong pre-download checks
         """
         filepath = Path(filepath)
-        self._ensure_parent(filepath)
-        
-        # Set current download for progress tracking
-        self.current_download = filepath.name
+        video_id = filepath.stem
 
-        # Check storage space before starting
-        expected_size = self._get_expected_size(url, timeout=10)
-        if not self._check_storage_space_before_download(expected_size):
-            self.logger.error(f"Insufficient storage space for download: {filepath.name}")
+        try:
+            # CRITICAL: Check progress tracker FIRST before any download attempt
+            from progress_tracker import ProgressTracker
+            progress_tracker = ProgressTracker()
+            
+            if progress_tracker.is_video_downloaded(video_id):
+                self.logger.info(f"SKIPPING: Video {video_id} already recorded in progress.json")
+                return True
+
+            # SECOND: Check if folder/file already exists and is valid
+            if self.file_validator.validate_video_folder(video_id):
+                self.logger.info(f"SKIPPING: Video {video_id} folder exists and is valid")
+                
+                # If for some reason not in progress tracker, add it now
+                if not progress_tracker.is_video_downloaded(video_id):
+                    progress_tracker.update_download_stats(video_id, 0)
+                    self.logger.info(f"Added existing video {video_id} to progress tracker")
+                
+                return True
+
+            # If we reach here, the video is NOT downloaded and needs to be processed
+            self.logger.info(f"PROCEEDING: Video {video_id} not found - will download")
+
+            self._ensure_parent(filepath)
+            self.current_download = filepath.name
+
+            # Check storage space before starting
+            expected_size = self._get_expected_size(url, timeout=10)
+            if not self._check_storage_space_before_download(expected_size):
+                self.logger.error(f"Insufficient storage space for download: {filepath.name}")
+                return False
+
+            # Choose download method based on configuration
+            download_method = self.config.get("download", {}).get("download_method", "direct")
+
+            if download_method == "idm":
+                return self._idm_download(url, filepath, progress_callback=progress_callback)
+            else:
+                return self._requests_stream_download(url, filepath, progress_callback=progress_callback)
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error in download_file for {video_id}: {e}")
             return False
 
-        download_conf = self.config.get("download", {})
-        timeout_seconds = int(download_conf.get("timeout_seconds", 60))
-        max_retries = int(download_conf.get("max_retries", 2))
 
-        # Prepare run_config_args for Crawl4AI
-        scraping_conf = self.config.get("scraping", {})
-        run_config_args = {}
 
-        configured_wait_for = scraping_conf.get("wait_for", None)
-        # Accept only string or list/tuple for wait_for
-        if isinstance(configured_wait_for, (str, list, tuple)):
-            run_config_args['wait_for'] = configured_wait_for
-
-        # Always pass wait_for_timeout if numeric (ms)
-        wait_time_ms = scraping_conf.get("wait_time_ms", None)
-        if isinstance(wait_time_ms, (int, float)):
-            run_config_args['wait_for_timeout'] = int(wait_time_ms)
-
-        # Try Crawl4AI first if available, then fallback to requests
-        if CRAWL4AI_AVAILABLE:
+    def _idm_download(self, url: str, filepath: Path, progress_callback: Optional[Callable[[str, float], None]] = None) -> bool:
+        """
+        Download file using IDM with automatic queue start and validation
+        """
+        max_retries = self.config.get("download", {}).get("max_retries", 3)
+        
+        # Extract video ID from filepath for progress tracking
+        video_id = filepath.stem
+        
+        for attempt in range(1, max_retries + 1):
             try:
-                # Crawl4AI download logic (simplified - just fallback for now)
-                self.logger.warning("Crawl4AI didn't report downloaded files; falling back to requests")
-                return self._requests_stream_download(url, filepath, progress_callback=progress_callback)
+                self.logger.info(f"IDM download attempt {attempt}/{max_retries}: {filepath.name}")
+                
+                # Use the single file download method that doesn't block the queue
+                if self.idm_downloader.download_single_file(url, filepath):
+                    # Verify the download
+                    if self.verify_download_integrity(filepath):
+                        self.logger.info(f"IDM download successful: {filepath.name}")
+                        
+                        # CRITICAL: Update progress tracker to prevent re-download
+                        file_size_mb = filepath.stat().st_size / (1024 * 1024)
+                        from progress_tracker import ProgressTracker
+                        progress_tracker = ProgressTracker()
+                        progress_tracker.update_download_stats(video_id, file_size_mb)
+                        self.logger.info(f"Progress updated for video {video_id} - preventing future re-download")
+                        
+                        return True
+                    else:
+                        self.logger.warning(f"IDM download failed integrity check: {filepath.name}")
+                        try:
+                            filepath.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                else:
+                    self.logger.warning(f"IDM download failed for: {filepath.name}")
+                
+                if attempt < max_retries:
+                    backoff = min(60, 2 ** attempt)
+                    self.logger.info(f"Retrying IDM download in {backoff} seconds...")
+                    time.sleep(backoff)
+                    
             except Exception as e:
-                self._clear_progress_line()
-                self.logger.exception("Error using Crawl4AI download for %s: %s", url, e)
-                return self._requests_stream_download(url, filepath, progress_callback=progress_callback)
+                self.logger.error(f"IDM download error (attempt {attempt}): {e}")
+                if attempt < max_retries:
+                    time.sleep(2 ** attempt)
+        
+        self.logger.error(f"All IDM download attempts failed for: {filepath.name}")
+        return False
 
-        # No Crawl4AI or fallback
-        return self._requests_stream_download(url, filepath, progress_callback=progress_callback)
 
     # ------------------------
     # requests streaming download with storage monitoring
@@ -414,12 +478,14 @@ class FileDownloader:
         return False
 
     # ------------------------
-    # Convenience wrappers (keep signatures)
+    # Convenience wrappers
     # ------------------------
 
     def download_video(self, video_url: str, video_file_path: Path) -> bool:
-        self.logger.info("Starting video download: %s", video_file_path.name)
+        download_method = self.config.get("download", {}).get("download_method", "direct")
+        self.logger.info(f"Starting video download ({download_method}): {video_file_path.name}")
         return self.download_file(video_url, video_file_path)
+
 
     def download_thumbnail(self, thumbnail_url: str, video_id: str, video_dir: Path) -> bool:
         if not thumbnail_url:
@@ -427,25 +493,28 @@ class FileDownloader:
 
         ext = self.get_file_extension(thumbnail_url)
         thumbnail_path = Path(video_dir) / f"{video_id}{ext}"
-
+        
+        download_method = self.config.get("download", {}).get("download_method", "direct")
+        
         if self.download_file(thumbnail_url, thumbnail_path):
             validation_config = self.config.get("validation", {})
             min_thumb_size = int(validation_config.get("min_thumbnail_size_bytes", 100) or 100)
-
+            
             try:
                 if thumbnail_path.stat().st_size >= min_thumb_size:
-                    self.logger.info("Thumbnail downloaded: %s", thumbnail_path.name)
+                    self.logger.info(f"Thumbnail downloaded ({download_method}): {thumbnail_path.name}")
                     return True
                 else:
-                    self.logger.warning("Thumbnail too small, removing: %s", thumbnail_path.name)
+                    self.logger.warning(f"Thumbnail too small, removing: {thumbnail_path.name}")
                     thumbnail_path.unlink(missing_ok=True)
                     return False
             except Exception as e:
-                self.logger.warning("Thumbnail validation error %s: %s", thumbnail_path.name, e)
+                self.logger.warning(f"Thumbnail validation error {thumbnail_path.name}: {e}")
                 return False
         else:
-            self.logger.warning("Failed to download thumbnail for %s", video_id)
+            self.logger.warning(f"Failed to download thumbnail for {video_id}")
             return False
+
 
     def get_file_extension(self, url: str) -> str:
         parsed_url = urlparse(url)
@@ -457,7 +526,7 @@ class FileDownloader:
             return '.jpg'
 
     def verify_download_integrity(self, filepath: Path) -> bool:
-        """FIXED: Added the missing verify_download_integrity method"""
+        """Verify downloaded file integrity"""
         try:
             if not isinstance(filepath, Path):
                 filepath = Path(filepath)
@@ -522,5 +591,5 @@ class FileDownloader:
             if filepath.exists():
                 return filepath.stat().st_size / (1024 * 1024)
             return 0.0
-        except Exception:
+        except Exception: 
             return 0.0

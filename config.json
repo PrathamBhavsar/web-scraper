@@ -1,21 +1,23 @@
 {
     "general": {
         "download_path": "C:\\scraper_downloads\\",
-        "max_storage_gb": 100,
+        "max_storage_gb": 20,
         "parallel_downloads": 3,
         "delay_between_requests": 1000,
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     },
     "download": {
-    "max_retries": 3,
-    "connect_timeout_seconds": 10,
-    "read_timeout_seconds": 120,
-    "chunk_size": 8192,
-    "verify_downloads": false
+        "download_method": "idm",
+        "idm_path": "C:\\Program Files (x86)\\Internet Download Manager\\idman.exe",
+        "max_retries": 3,
+        "connect_timeout_seconds": 10,
+        "read_timeout_seconds": 120,
+        "chunk_size": 8192,
+        "verify_downloads": false
     },
     "scraping": {
-    "wait_for": null,          
-    "wait_time_ms": 5000
+        "wait_for": null,          
+        "wait_time_ms": 5000
     },
     "storage": {
         "create_subdirectories": true,

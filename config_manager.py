@@ -29,10 +29,11 @@ class ConfigManager:
                 "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             },
             "download": {
-                "download_method": "hybrid",
+                "download_method": "idm", 
                 "idm_path": "C:\\Program Files (x86)\\Internet Download Manager\\idman.exe",
                 "max_retries": 2,
-                "timeout_seconds": 60,
+                "connect_timeout_seconds": 10,
+                "read_timeout_seconds": 120,
                 "chunk_size": 8192,
                 "verify_downloads": False
             },
@@ -63,9 +64,11 @@ class ConfigManager:
                 "validation_delay_seconds": 1
             }
         }
+        
         with open(self.config_path, 'w', encoding='utf-8') as f:
             json.dump(default_config, f, indent=2)
         return default_config
+
 
     def validate_config(self):
         """Validate configuration values are within acceptable ranges."""
