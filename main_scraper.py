@@ -380,46 +380,45 @@ class VideoScraper:
         
         # Process videos in parallel using ThreadPoolExecutor
         loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor(max_workers=self.max_concurrent_videos, 
-                              thread_name_prefix="VideoWorker") as executor:
+        
+        # Track results
+        stats = {"successful": 0, "failed": 0, "skipped": 0}
+        
+        # FIXED: Use asyncio.gather instead of as_completed for cleaner handling
+        tasks = []
+        for video_info in videos_to_process:
+            task = loop.run_in_executor(
+                None,  # Use default executor
+                self.video_processor.process_video_parallel_safe,
+                video_info,
+                3,  # max_retries
+                page_num  # page_num
+            )
+            tasks.append((task, video_info["video_id"]))
+        
+        # Wait for all tasks to complete
+        results = await asyncio.gather(*[task for task, _ in tasks], return_exceptions=True)
+        
+        # Process results
+        for i, result in enumerate(results):
+            video_id = tasks[i][1]
             
-            # Submit all video processing tasks
-            future_to_video = {
-                loop.run_in_executor(
-                    executor, 
-                    self.video_processor.process_video_parallel_safe,
-                    video_info,
-                    3,  # max_retries
-                    page_num  # page_num
-                ): video_info["video_id"]
-                for video_info in videos_to_process
-            }
-            
-            # Track results
-            stats = {"successful": 0, "failed": 0, "skipped": 0}
-            
-            # Process results as they complete
-            for future in asyncio.as_completed(future_to_video):
-                video_id = future_to_video[future]
-                try:
-                    success = await future
-                    
-                    if success:
-                        stats["successful"] += 1
-                        self.logger.info(f"✓ PARALLEL: Video {video_id} processed successfully")
-                    else:
-                        stats["failed"] += 1
-                        self.logger.error(f"✗ PARALLEL: Video {video_id} processing failed")
-                        
-                except Exception as e:
-                    stats["failed"] += 1
-                    self.logger.error(f"✗ PARALLEL: Video {video_id} processing failed with exception: {e}")
+            if isinstance(result, Exception):
+                stats["failed"] += 1
+                self.logger.error(f"✗ PARALLEL: Video {video_id} processing failed with exception: {result}")
+            elif result:
+                stats["successful"] += 1
+                self.logger.info(f"✓ PARALLEL: Video {video_id} processed successfully")
+            else:
+                stats["failed"] += 1
+                self.logger.error(f"✗ PARALLEL: Video {video_id} processing failed")
         
         # PHASE 3: Final report
         self.logger.info(f"PHASE 2 COMPLETE: Parallel video processing finished")
         self.generate_final_report_parallel(page_num, video_links, stats)
         
         return True
+
 
     # Keep existing methods for backward compatibility and fallback
     async def create_complete_video_info_fixed(self, video_url, crawl4ai_result):
