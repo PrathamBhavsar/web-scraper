@@ -8,7 +8,7 @@
     "max_storage_gb": 100
   },
   "processing": {
-    "mode": "hybrid",
+    "mode": "direct",
     "use_parallel": true,
     "parallel_batch_size": 5,
     "max_concurrent_downloads": 8,
