@@ -21,7 +21,7 @@
     "enable_crawl4ai": true
   },
   "download": {
-    "download_method": "idm",
+    "download_method": "direct",
     "max_retries": 5,
     "chunk_size": 16384,
     "connect_timeout_seconds": 30,
