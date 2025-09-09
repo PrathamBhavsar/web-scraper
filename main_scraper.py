@@ -466,7 +466,7 @@ class VideoScraper:
                 self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping during video info creation")
                 return False
                 
-            video_info = await self.create_complete_video_info_fixed(video_url, crawl4ai_result)
+            video_info = await self.create_complete_video_info(video_url, crawl4ai_result)
             if video_info and video_info.get("video_src"):
                 # CRITICAL: Ensure all required fields are present and valid
                 self.ensure_complete_video_info(video_info)
@@ -588,7 +588,7 @@ class VideoScraper:
                 return False
 
     # Keep existing methods for backward compatibility and fallback
-    async def create_complete_video_info_fixed(self, video_url, crawl4ai_result):
+    async def create_complete_video_info(self, video_url, crawl4ai_result):
         """FIXED: Create complete video info structure from Crawl4AI results with proper metadata"""
         try:
             # Extract video ID
