@@ -1,9 +1,22 @@
 {
   "last_video_id": "",
-  "last_page": 0,
+  "last_page": 9547,
   "total_downloaded": 0,
   "total_size_mb": 0,
-  "downloaded_videos": [
-   
+  "downloaded_videos": [],
+  "failed_videos": [
+    "12",
+    "8",
+    "13",
+    "16",
+    "6",
+    "10",
+    "11",
+    "14",
+    "15",
+    "9",
+    "17",
+    "4",
+    "3"
   ]
 }

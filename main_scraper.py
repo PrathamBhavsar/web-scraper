@@ -161,7 +161,7 @@ class VideoScraper:
             # Initialize force stop flag for GUI integration
             if not hasattr(self, 'force_stop_requested'):
                 self.force_stop_requested = False
-            
+
             # Initial storage check
             limit_reached, usage_gb = self.check_storage_limits(force_check=True)
             if limit_reached:
@@ -175,14 +175,15 @@ class VideoScraper:
             start_page = self.determine_start_strategy()
             self.logger.info(f"Starting scrape from page {start_page} working backwards")
 
-            asyncio.run(self.run_backwards_scrape(start_page))
+            # FIXED: Handle asyncio properly for threading
+            self.run_backwards_scrape_threadsafe(start_page)
 
         except KeyboardInterrupt:
             self.logger.info("Scraping interrupted by user (Ctrl+C)")
             current_usage = self.get_download_folder_size()
             self.logger.info(f"Usage at interruption: {current_usage / (1024**3):.2f} GB")
         except Exception as e:
-            if self.force_stop_requested:
+            if hasattr(self, 'force_stop_requested') and self.force_stop_requested:
                 self.logger.info("Scraper stopped due to force stop request")
             else:
                 self.logger.error(f"Unexpected error in main loop: {e}")
@@ -192,11 +193,12 @@ class VideoScraper:
                 self.web_driver_manager.close_driver()
             except Exception as e:
                 self.logger.error(f"Error during cleanup: {e}")
-            
-            if self.force_stop_requested:
+
+            if hasattr(self, 'force_stop_requested') and self.force_stop_requested:
                 self.logger.info("Scraper force stopped by user")
             else:
                 self.logger.info("Scraper finished normally")
+
     def check_force_stop(self):
         """Check if force stop was requested (for GUI integration)"""
         # Check GUI force stop if available
@@ -348,6 +350,196 @@ class VideoScraper:
                 
             self.logger.info("=" * 80)
             return emergency_page
+    
+    def run_backwards_scrape_threadsafe(self, start_page):
+        """FIXED: Thread-safe version that handles asyncio properly"""
+        try:
+            import threading
+            
+            # Check if we're in the main thread
+            main_thread = isinstance(threading.current_thread(), threading._MainThread)
+            
+            if main_thread:
+                # We're in main thread, use asyncio.run normally
+                self.logger.info("Running in main thread - using asyncio.run()")
+                asyncio.run(self.run_backwards_scrape(start_page))
+            else:
+                # We're in a service/background thread, create new event loop
+                self.logger.info("Running in background thread - creating new event loop")
+                
+                # Create new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                
+                try:
+                    # Run the async function
+                    loop.run_until_complete(self.run_backwards_scrape(start_page))
+                finally:
+                    # Clean up the loop
+                    try:
+                        # Cancel all running tasks
+                        pending = asyncio.all_tasks(loop)
+                        for task in pending:
+                            task.cancel()
+                        
+                        # Wait for tasks to complete cancellation
+                        if pending:
+                            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                    except Exception as e:
+                        self.logger.warning(f"Error cleaning up async tasks: {e}")
+                    finally:
+                        loop.close()
+                        
+        except Exception as e:
+            self.logger.error(f"Error in thread-safe async execution: {e}")
+            traceback.print_exc()
+            
+            # Fallback to synchronous processing
+            self.logger.warning("Falling back to synchronous processing...")
+            self.run_backwards_scrape_sync(start_page)
+    
+    
+    def run_backwards_scrape_sync(self, start_page):
+        """Synchronous fallback version for threading issues"""
+        current_page = start_page
+        self.logger.info(f"STARTING BACKWARDS SCRAPE (SYNCHRONOUS FALLBACK)")
+        self.logger.info(f"Begin page: {start_page}")
+        self.logger.info(f"Direction: BACKWARDS (high to low)")
+
+        while current_page >= 1:
+            # Check for force stop before each page
+            if self.check_force_stop():
+                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping backwards scrape")
+                break
+
+            # Check storage before each page
+            limit_reached, usage_gb = self.check_storage_limits()
+            if limit_reached:
+                self.logger.info("Storage limit reached, stopping scrape")
+                break
+
+            self.logger.info(f"\\n{'='*80}")
+            self.logger.info(f"PROCESSING PAGE {current_page} (BACKWARDS SCRAPE - SYNC)")
+            self.logger.info(f"Remaining pages to process: {current_page} pages")
+            self.logger.info(f"{'='*80}")
+
+            try:
+                # Check force stop before processing page
+                if self.check_force_stop():
+                    self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping before page processing")
+                    break
+
+                # Process page synchronously
+                page_processed = self.process_page_sync(current_page)
+
+                if page_processed:
+                    self.progress_tracker.update_last_processed_page(current_page)
+                    self.logger.info(f"Page {current_page} completed successfully")
+                else:
+                    self.logger.warning(f"Page {current_page} processing failed")
+
+                # Move to previous page (backwards)
+                current_page -= 1
+                self.logger.info(f"Moving backwards: Next page will be {current_page if current_page >= 1 else 'COMPLETE'}")
+
+                # Wait between pages
+                if current_page >= 1:
+                    self.wait_between_pages_sync()
+
+            except Exception as e:
+                if self.check_force_stop():
+                    self.logger.warning("🛑 FORCE STOP during page processing")
+                    break
+
+                self.logger.error(f"Error processing page {current_page}: {e}")
+                traceback.print_exc()
+                current_page -= 1
+                continue
+
+        final_page = current_page + 1
+
+        if hasattr(self, 'force_stop_requested') and self.force_stop_requested:
+            self.logger.info(f"BACKWARDS SCRAPE FORCE STOPPED")
+            self.logger.info(f"Last completed page: {final_page}")
+        else:
+            self.logger.info(f"BACKWARDS SCRAPE COMPLETED")
+            self.logger.info(f"Last page processed: {final_page}")
+
+        self.logger.info(f"Total pages processed: {start_page - final_page + 1}")
+
+    def process_page_sync(self, page_num):
+        """Synchronous page processing"""
+        try:
+            # Set page context
+            self.file_downloader.current_page_num = page_num
+            self.logger.info(f"Starting synchronous processing for page {page_num}")
+
+            # Get video links
+            video_links = self.page_navigator.get_video_links_from_page(page_num)
+            if not video_links:
+                self.logger.error(f"No video links found on page {page_num}")
+                return False
+
+            self.logger.info(f"Found {len(video_links)} videos on page {page_num}")
+
+            # Process videos sequentially
+            stats = {"successful": 0, "failed": 0, "skipped": 0}
+
+            for i, video_url in enumerate(video_links, 1):
+                if self.check_force_stop():
+                    self.logger.warning("🛑 FORCE STOP during video processing")
+                    break
+
+                try:
+                    # Extract video info
+                    video_info = self.video_info_extractor.extract_video_info(video_url)
+                    
+                    if video_info and video_info.get("video_src"):
+                        self.ensure_complete_video_info(video_info)
+                        
+                        # Check if already downloaded
+                        video_id = video_info["video_id"]
+                        if self.progress_tracker.is_video_downloaded(video_id):
+                            stats["skipped"] += 1
+                            continue
+                        
+                        # Process video
+                        success = self.video_processor.process_video_parallel_safe(video_info, 3, page_num)
+                        if success:
+                            stats["successful"] += 1
+                        else:
+                            stats["failed"] += 1
+                    else:
+                        stats["failed"] += 1
+
+                except Exception as e:
+                    self.logger.error(f"Error processing video {i}: {e}")
+                    stats["failed"] += 1
+
+            # Generate report
+            self.generate_final_report_parallel(page_num, video_links, stats)
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error in synchronous page processing: {e}")
+            return False
+
+    def wait_between_pages_sync(self):
+        """Synchronous wait between pages with force stop checking"""
+        page_delay = self.config.get("general", {}).get("delay_between_pages", 5000) / 1000
+        self.logger.info(f"Waiting {page_delay} seconds before next page...")
+
+        # Wait in small increments so we can check force stop
+        wait_increment = 0.5  # Check every 0.5 seconds
+        total_waited = 0
+
+        while total_waited < page_delay:
+            if self.check_force_stop():
+                self.logger.warning("🛑 FORCE STOP REQUESTED - Interrupting page delay")
+                break
+
+            time.sleep(min(wait_increment, page_delay - total_waited))
+            total_waited += wait_increment
             
     async def run_backwards_scrape(self, start_page):
         """Run scrape from high page numbers going backwards to page 1 + FORCE STOP SUPPORT"""
