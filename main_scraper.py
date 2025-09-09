@@ -156,39 +156,60 @@ class VideoScraper:
             return False, 0.0
 
     def run(self):
-        """Main execution loop - smart resume with backwards-only scraping"""
+        """Main execution loop - smart resume with backwards-only scraping + FORCE STOP SUPPORT"""
         try:
+            # Initialize force stop flag for GUI integration
+            if not hasattr(self, 'force_stop_requested'):
+                self.force_stop_requested = False
+            
             # Initial storage check
             limit_reached, usage_gb = self.check_storage_limits(force_check=True)
             if limit_reached:
                 self.logger.error("Storage limit already reached. Cannot start scraping.")
                 return
-            
+
             # Setup driver
             self.web_driver_manager.setup_driver()
-            
+
             # Determine starting strategy (always backwards now)
             start_page = self.determine_start_strategy()
             self.logger.info(f"Starting scrape from page {start_page} working backwards")
-            
+
             asyncio.run(self.run_backwards_scrape(start_page))
-            
+
         except KeyboardInterrupt:
             self.logger.info("Scraping interrupted by user (Ctrl+C)")
             current_usage = self.get_download_folder_size()
             self.logger.info(f"Usage at interruption: {current_usage / (1024**3):.2f} GB")
-            
         except Exception as e:
-            self.logger.error(f"Unexpected error in main loop: {e}")
-            traceback.print_exc()
-            
+            if self.force_stop_requested:
+                self.logger.info("Scraper stopped due to force stop request")
+            else:
+                self.logger.error(f"Unexpected error in main loop: {e}")
+                traceback.print_exc()
         finally:
             try:
                 self.web_driver_manager.close_driver()
             except Exception as e:
                 self.logger.error(f"Error during cleanup: {e}")
+            
+            if self.force_stop_requested:
+                self.logger.info("Scraper force stopped by user")
+            else:
+                self.logger.info("Scraper finished normally")
+    def check_force_stop(self):
+        """Check if force stop was requested (for GUI integration)"""
+        # Check GUI force stop if available
+        if hasattr(self, 'gui_force_stop_check') and callable(self.gui_force_stop_check):
+            if self.gui_force_stop_check():
+                self.force_stop_requested = True
                 
-            self.logger.info("Scraper finished")
+        # Check internal force stop flag
+        if hasattr(self, 'force_stop_requested') and self.force_stop_requested:
+            self.logger.warning("🛑 FORCE STOP DETECTED - Aborting current operation")
+            return True
+            
+        return False
 
     def determine_start_strategy(self):
         """
@@ -329,53 +350,72 @@ class VideoScraper:
             return emergency_page
             
     async def run_backwards_scrape(self, start_page):
-        """Run scrape from high page numbers going backwards to page 1"""
+        """Run scrape from high page numbers going backwards to page 1 + FORCE STOP SUPPORT"""
         current_page = start_page
-        
         self.logger.info(f"STARTING BACKWARDS SCRAPE")
         self.logger.info(f"Begin page: {start_page}")
         self.logger.info(f"Direction: BACKWARDS (high to low)")
         self.logger.info(f"Page sequence example: {start_page} -> {max(1, start_page-1)} -> {max(1, start_page-2)} -> ... -> 1")
-        
+
         while current_page >= 1:
+            # CRITICAL: Check for force stop before each page
+            if self.check_force_stop():
+                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping backwards scrape")
+                break
+                
             # Check storage before each page
             limit_reached, usage_gb = self.check_storage_limits()
             if limit_reached:
                 self.logger.info("Storage limit reached, stopping scrape")
                 break
-            
-            self.logger.info(f"\n{'='*80}")
+
+            self.logger.info(f"\\n{'='*80}")
             self.logger.info(f"PROCESSING PAGE {current_page} (BACKWARDS SCRAPE)")
             self.logger.info(f"Remaining pages to process: {current_page} pages")
             self.logger.info(f"{'='*80}")
-            
+
             try:
+                # Check force stop before processing page
+                if self.check_force_stop():
+                    self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping before page processing")
+                    break
+                
                 # NEW: Use parallel processing for this page
                 page_processed = await self._process_single_page_parallel(current_page)
-                
+
                 if page_processed:
                     self.progress_tracker.update_last_processed_page(current_page)
                     self.logger.info(f"Page {current_page} completed successfully")
                 else:
                     self.logger.warning(f"Page {current_page} processing failed")
-                
+
                 # Move to previous page (backwards)
                 current_page -= 1
                 self.logger.info(f"Moving backwards: Next page will be {current_page if current_page >= 1 else 'COMPLETE'}")
-                
-                # Wait between pages
+
+                # Wait between pages (with force stop checking)
                 if current_page >= 1:
                     await self._wait_between_pages()
-                    
+
             except Exception as e:
+                if self.check_force_stop():
+                    self.logger.warning("🛑 FORCE STOP during page processing")
+                    break
+                    
                 self.logger.error(f"Error processing page {current_page}: {e}")
                 traceback.print_exc()
                 current_page -= 1
                 continue
-        
+
         final_page = current_page + 1
-        self.logger.info(f"BACKWARDS SCRAPE COMPLETED")
-        self.logger.info(f"Last page processed: {final_page}")
+        
+        if self.force_stop_requested:
+            self.logger.info(f"BACKWARDS SCRAPE FORCE STOPPED")
+            self.logger.info(f"Last completed page: {final_page}")
+        else:
+            self.logger.info(f"BACKWARDS SCRAPE COMPLETED")
+            self.logger.info(f"Last page processed: {final_page}")
+            
         self.logger.info(f"Total pages processed: {start_page - final_page + 1}")
 
     async def _process_single_page_parallel(self, page_num):
@@ -386,38 +426,52 @@ class VideoScraper:
             return await self.process_page_sequential_optimized(page_num)
 
     async def process_page_with_parallel_videos(self, page_num):
-        """
-        NEW: Process page with full parallel video processing (3 videos at a time)
-        
-        This is the new main processing method that processes complete videos
-        (scraping + downloading + validation + progress) in parallel
-        """
+        """Process page with full parallel video processing + FORCE STOP SUPPORT"""
         # Set page context
         self.file_downloader.current_page_num = page_num
         self.logger.info(f"Starting PARALLEL VIDEO PROCESSING for page {page_num} (max {self.max_concurrent_videos} videos simultaneously)")
-        
+
+        # Check for force stop at the beginning
+        if self.check_force_stop():
+            self.logger.warning("🛑 FORCE STOP REQUESTED - Skipping page processing")
+            return False
+
         # Get video links
         video_links = self.page_navigator.get_video_links_from_page(page_num)
         if not video_links:
             self.logger.error(f"No video links found on page {page_num}")
             return False
-        
+
         self.logger.info(f"Found {len(video_links)} videos on page {page_num}")
-        
+
+        # Check for force stop after getting links
+        if self.check_force_stop():
+            self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping after getting video links")
+            return False
+
         # PHASE 1: Extract all video info in parallel (existing method)
         self.logger.info(f"PHASE 1: Extracting info for {len(video_links)} videos in parallel...")
-        
         batch_results = await self.video_info_extractor.parallel_extract_multiple_videos(video_links)
-        
+
+        # Check for force stop after info extraction
+        if self.check_force_stop():
+            self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping after info extraction")
+            return False
+
         # Create complete video info objects with full metadata
         video_info_list = []
-        for video_url, crawl4ai_result in zip(video_links, batch_results):
+        for i, (video_url, crawl4ai_result) in enumerate(zip(video_links, batch_results)):
+            # Check force stop during info creation
+            if self.check_force_stop():
+                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping during video info creation")
+                return False
+                
             video_info = await self.create_complete_video_info_fixed(video_url, crawl4ai_result)
             if video_info and video_info.get("video_src"):
                 # CRITICAL: Ensure all required fields are present and valid
                 self.ensure_complete_video_info(video_info)
                 video_info_list.append(video_info)
-        
+
         # Filter out already downloaded videos
         videos_to_process = []
         for video_info in video_info_list:
@@ -425,58 +479,113 @@ class VideoScraper:
             if not self.progress_tracker.is_video_downloaded(video_id) and not self.progress_tracker.is_video_failed(video_id):
                 if not self.file_validator.validate_video_folder(video_id):
                     videos_to_process.append(video_info)
-        
+
         self.logger.info(f"PHASE 1 COMPLETE: {len(videos_to_process)} videos need processing")
-        
+
         if not videos_to_process:
             self.logger.info("All videos already downloaded or failed, skipping to next page")
             return True
-        
+
+        # Final force stop check before video processing
+        if self.check_force_stop():
+            self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping before video processing phase")
+            return False
+
         # PHASE 2: NEW - PARALLEL VIDEO PROCESSING (complete pipeline)
         self.logger.info(f"PHASE 2: PARALLEL PROCESSING {len(videos_to_process)} videos simultaneously...")
         self.logger.info(f"Each video will complete: scraping → downloading → validation → progress update")
-        
+
         # Process videos in parallel using ThreadPoolExecutor
         loop = asyncio.get_event_loop()
-        
+
         # Track results
         stats = {"successful": 0, "failed": 0, "skipped": 0}
-        
-        # FIXED: Use asyncio.gather instead of as_completed for cleaner handling
+
+        # ENHANCED: Process videos with force stop checking
         tasks = []
         for video_info in videos_to_process:
+            if self.check_force_stop():
+                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping video task creation")
+                break
+                
+            # Pass force stop check to video processor
             task = loop.run_in_executor(
                 None,  # Use default executor
-                self.video_processor.process_video_parallel_safe,
+                self._process_video_with_stop_check,
                 video_info,
                 3,  # max_retries
                 page_num  # page_num
             )
             tasks.append((task, video_info["video_id"]))
-        
-        # Wait for all tasks to complete
-        results = await asyncio.gather(*[task for task, _ in tasks], return_exceptions=True)
-        
-        # Process results
-        for i, result in enumerate(results):
-            video_id = tasks[i][1]
-            
-            if isinstance(result, Exception):
-                stats["failed"] += 1
-                self.logger.error(f"✗ PARALLEL: Video {video_id} processing failed with exception: {result}")
-            elif result:
-                stats["successful"] += 1
-                self.logger.info(f"✓ PARALLEL: Video {video_id} processed successfully")
-            else:
-                stats["failed"] += 1
-                self.logger.error(f"✗ PARALLEL: Video {video_id} processing failed")
-        
+
+        if not tasks:
+            self.logger.warning("No video tasks created (force stop or error)")
+            return False
+
+        # Wait for all tasks to complete (with periodic force stop checking)
+        try:
+            results = []
+            for task, video_id in tasks:
+                if self.check_force_stop():
+                    self.logger.warning(f"🛑 FORCE STOP REQUESTED - Cancelling remaining video tasks")
+                    # Cancel remaining tasks
+                    for remaining_task, _ in tasks[len(results):]:
+                        remaining_task.cancel()
+                    break
+                    
+                try:
+                    result = await task
+                    results.append(result)
+                except Exception as e:
+                    self.logger.error(f"Task for video {video_id} failed: {e}")
+                    results.append(False)
+
+            # Process results
+            for i, result in enumerate(results):
+                video_id = tasks[i][1]
+                if isinstance(result, Exception):
+                    stats["failed"] += 1
+                    self.logger.error(f"✗ PARALLEL: Video {video_id} processing failed with exception: {result}")
+                elif result:
+                    stats["successful"] += 1
+                    self.logger.info(f"✓ PARALLEL: Video {video_id} processed successfully")
+                else:
+                    stats["failed"] += 1
+                    self.logger.error(f"✗ PARALLEL: Video {video_id} processing failed")
+
+        except Exception as e:
+            self.logger.error(f"Error during parallel video processing: {e}")
+            if self.check_force_stop():
+                self.logger.warning("🛑 FORCE STOP REQUESTED during video processing")
+            return False
+
         # PHASE 3: Final report
-        self.logger.info(f"PHASE 2 COMPLETE: Parallel video processing finished")
+        if self.check_force_stop():
+            self.logger.info(f"PHASE 2 INTERRUPTED: Parallel video processing stopped by force stop")
+        else:
+            self.logger.info(f"PHASE 2 COMPLETE: Parallel video processing finished")
+            
         self.generate_final_report_parallel(page_num, video_links, stats)
-        
         return True
 
+    def _process_video_with_stop_check(self, video_info, max_retries, page_num):
+        """Process video with force stop checking"""
+        try:
+            # Check force stop before processing
+            if self.check_force_stop():
+                self.logger.warning(f"🛑 FORCE STOP - Skipping video {video_info['video_id']}")
+                return False
+                
+            # Use existing video processor but with force stop awareness
+            return self.video_processor.process_video_parallel_safe(video_info, max_retries, page_num)
+            
+        except Exception as e:
+            if self.check_force_stop():
+                self.logger.warning(f"🛑 FORCE STOP during video {video_info['video_id']} processing")
+                return False
+            else:
+                self.logger.error(f"Error processing video {video_info['video_id']}: {e}")
+                return False
 
     # Keep existing methods for backward compatibility and fallback
     async def create_complete_video_info_fixed(self, video_url, crawl4ai_result):
@@ -611,10 +720,21 @@ class VideoScraper:
             self.logger.error(f"Error ensuring complete video info: {e}")
 
     async def _wait_between_pages(self):
-        """Wait between pages"""
+        """Wait between pages with force stop checking"""
         page_delay = self.config.get("general", {}).get("delay_between_pages", 5000) / 1000
         self.logger.info(f"Waiting {page_delay} seconds before next page...")
-        await asyncio.sleep(page_delay)
+        
+        # Wait in small increments so we can check force stop
+        wait_increment = 0.5  # Check every 0.5 seconds
+        total_waited = 0
+        
+        while total_waited < page_delay:
+            if self.check_force_stop():
+                self.logger.warning("🛑 FORCE STOP REQUESTED - Interrupting page delay")
+                break
+                
+            await asyncio.sleep(min(wait_increment, page_delay - total_waited))
+            total_waited += wait_increment
 
     def generate_final_report_parallel(self, page_num, video_links, stats):
         """Create summary of parallel scraping results"""

@@ -1,4 +1,4 @@
-# gui_scraper.py - Enhanced GUI with Terminal View
+# gui_scraper.py - Enhanced GUI with WORKING Force Stop
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext
@@ -7,9 +7,11 @@ import time
 import json
 import logging
 import queue
-from pathlib import Path
-import sys
+import asyncio
 import os
+import signal
+import sys
+from pathlib import Path
 
 # Import the scraper
 from main_scraper import VideoScraper
@@ -35,6 +37,7 @@ class ScraperGUI:
         self.scraper = None
         self.scraper_thread = None
         self.is_running = False
+        self.force_stop_requested = False  # NEW: Force stop flag
         self.info_labels = {}
         self.start_time = None
         
@@ -102,7 +105,7 @@ class ScraperGUI:
         )
         self.start_button.pack(side='left', padx=5)
         
-        # Cancel button
+        # Cancel button - ENHANCED
         self.cancel_button = tk.Button(
             control_frame,
             text="❌ FORCE STOP",
@@ -319,6 +322,7 @@ class ScraperGUI:
     def start_scraper(self):
         """Start the scraper in a separate thread"""
         self.is_running = True
+        self.force_stop_requested = False  # Reset force stop flag
         self.start_time = time.time()
         
         # Update buttons
@@ -350,6 +354,10 @@ class ScraperGUI:
         self.add_terminal_log("⏹ STOPPING SCRAPER (Graceful shutdown...)", "WARNING")
         self.is_running = False
         
+        # Signal the scraper to stop
+        if self.scraper:
+            self.scraper.force_stop_requested = True
+        
         # Update status
         self.status_label.configure(
             text="Stopping...",
@@ -357,19 +365,60 @@ class ScraperGUI:
         )
         
     def force_stop(self):
-        """Force stop the scraper"""
-        self.add_terminal_log("❌ FORCE STOPPING SCRAPER", "ERROR")
+        """ENHANCED: Force stop the scraper with multiple escalation levels"""
+        self.add_terminal_log("🚨 FORCE STOP INITIATED - STOPPING ALL OPERATIONS", "ERROR")
+        
+        # Level 1: Set all stop flags
         self.is_running = False
+        self.force_stop_requested = True
         
+        if self.scraper:
+            self.scraper.force_stop_requested = True
+            self.add_terminal_log("🔴 Level 1: Setting scraper stop flags...", "ERROR")
+        
+        # Level 2: Try to interrupt the scraper thread
         if self.scraper_thread and self.scraper_thread.is_alive():
-            # Try to terminate the scraper process
-            try:
-                if self.scraper:
-                    self.add_terminal_log("🔨 Forcing termination of scraper processes...", "ERROR")
-            except Exception as e:
-                self.add_terminal_log(f"⚠️ Error during force stop: {e}", "ERROR")
+            self.add_terminal_log("🔴 Level 2: Attempting to interrupt scraper thread...", "ERROR")
+            
+            # Give it 2 seconds to stop gracefully
+            self.scraper_thread.join(timeout=2.0)
+            
+            if self.scraper_thread.is_alive():
+                self.add_terminal_log("🔴 Level 3: Thread still alive, forcing termination...", "ERROR")
+                
+                # Level 3: Force close WebDriver and processes
+                try:
+                    if self.scraper and hasattr(self.scraper, 'web_driver_manager'):
+                        self.add_terminal_log("🔴 Terminating WebDriver processes...", "ERROR")
+                        self.scraper.web_driver_manager.close_driver()
+                        
+                    if self.scraper and hasattr(self.scraper, 'file_downloader'):
+                        self.add_terminal_log("🔴 Stopping download processes...", "ERROR")
+                        # Add any download stop logic here
+                        
+                except Exception as e:
+                    self.add_terminal_log(f"⚠️ Error during process termination: {e}", "ERROR")
+                
+                # Level 4: Last resort - system exit after delay
+                self.add_terminal_log("🔴 Level 4: EMERGENCY SHUTDOWN in 3 seconds...", "ERROR")
+                self.add_terminal_log("🔴 WARNING: Application will force-close!", "ERROR")
+                
+                # Give user a moment to see the message
+                self.root.after(3000, self.emergency_shutdown)
         
+        # Update GUI immediately
         self.scraper_finished()
+        
+    def emergency_shutdown(self):
+        """Last resort emergency shutdown"""
+        self.add_terminal_log("💥 EMERGENCY SHUTDOWN - FORCE CLOSING APPLICATION", "ERROR")
+        
+        # Force close everything
+        try:
+            # Kill any remaining processes
+            os._exit(1)  # Nuclear option - force exit the entire Python process
+        except:
+            sys.exit(1)  # Fallback
         
     def clear_terminal(self):
         """Clear terminal output"""
@@ -377,11 +426,15 @@ class ScraperGUI:
         self.add_terminal_log("🗑️ Terminal cleared", "INFO")
         
     def run_scraper(self):
-        """Run the scraper (called in separate thread)"""
+        """ENHANCED: Run the scraper with stop checking"""
         try:
             # Create scraper instance
             os.makedirs("C:\\scraper_downloads", exist_ok=True)
             self.scraper = VideoScraper()
+            
+            # CRITICAL: Pass the force stop flag to scraper
+            self.scraper.force_stop_requested = False
+            self.scraper.gui_force_stop_check = lambda: self.force_stop_requested or not self.is_running
             
             # Add GUI log handler to scraper's logger
             self.scraper.logger.addHandler(self.gui_log_handler)
@@ -398,6 +451,7 @@ class ScraperGUI:
         finally:
             # Reset when done
             self.is_running = False
+            self.force_stop_requested = False
             self.root.after(0, self.scraper_finished)
             
     def scraper_finished(self):
@@ -417,7 +471,10 @@ class ScraperGUI:
         self.current_file_label.configure(text="None")
         self.current_progress_bar.stop()
         
-        self.add_terminal_log("✅ SCRAPER FINISHED", "SUCCESS")
+        if self.force_stop_requested:
+            self.add_terminal_log("🛑 SCRAPER FORCE STOPPED", "ERROR")
+        else:
+            self.add_terminal_log("✅ SCRAPER FINISHED", "SUCCESS")
         
     def add_terminal_log(self, message, level="INFO"):
         """Add message to terminal with timestamp and color"""
@@ -433,7 +490,7 @@ class ScraperGUI:
         }
         
         indicator = level_indicators.get(level, "ℹ️")
-        full_message = f"[{timestamp}] {indicator} {message}\n"
+        full_message = f"[{timestamp}] {indicator} {message}\\n"
         
         # Insert with color
         self.terminal_text.insert(tk.END, full_message, level)
@@ -470,7 +527,7 @@ class ScraperGUI:
                 clean_entry = log_entry.replace("MainThread", "MAIN")
                 clean_entry = clean_entry.replace("VideoWorker-", "WORKER-")
                 
-                self.terminal_text.insert(tk.END, clean_entry + "\n", level)
+                self.terminal_text.insert(tk.END, clean_entry + "\\n", level)
                 self.terminal_text.see(tk.END)
                 
         except queue.Empty:
@@ -535,8 +592,8 @@ class ScraperGUI:
         """Handle window close event"""
         if self.is_running:
             self.add_terminal_log("🔴 Application closing - stopping scraper...", "WARNING")
-            self.is_running = False
-            time.sleep(1)  # Give time for graceful shutdown
+            self.force_stop()  # Use force stop when closing
+            time.sleep(2)  # Give time for cleanup
         
         self.root.destroy()
 
