@@ -192,84 +192,142 @@ class VideoScraper:
 
     def determine_start_strategy(self):
         """
-        FIXED & BULLETPROOF: Determine starting page with detailed logging
-        GUARANTEE: When no downloads exist, ALWAYS start from last page
+        CORRECTED: Determine starting page and NAVIGATE to it properly
         """
         self.logger.info("=" * 80)
         self.logger.info("DETERMINING START STRATEGY")
         self.logger.info("=" * 80)
-        
+
         # Step 1: Check progress.json for downloaded videos
         self.logger.info("Step 1: Checking progress.json for existing downloads...")
         downloaded_videos = self.progress_tracker.get_downloaded_videos()
         
         if not downloaded_videos or len(downloaded_videos) == 0:
             self.logger.info("RESULT: No downloads found in progress.json")
-            self.logger.info("DECISION: Starting fresh scrape - will begin from HIGHEST page number")
+            self.logger.info("DECISION: Starting FRESH SCRAPE - will find ACTUAL last page from website")
             
-            # Get last page from website
-            self.logger.info("Step 2: Fetching highest page number from website...")
-            try:
-                last_page = self.page_navigator.get_last_page_number()
-                self.logger.info(f"WEBSITE REPORTS: Highest page number is {last_page}")
-                
-                if last_page and last_page >= 1:
-                    self.logger.info(f"CONFIRMED: Starting from page {last_page} (highest page)")
-                    self.logger.info(f"STRATEGY: Will scrape backwards from {last_page} -> {last_page-1} -> ... -> 1")
-                    self.logger.info("=" * 80)
-                    return last_page
-                else:
-                    self.logger.error(f"ERROR: Invalid last page number: {last_page}")
-                    self.logger.info("FALLBACK: Using page 1000 as default starting point")
-                    self.logger.info("=" * 80)
-                    return 1000
+            # ENHANCED: Get actual last page from website with retries
+            self.logger.info("Step 2: Fetching ACTUAL highest page number from website...")
+            
+            max_retries = 3
+            for retry in range(max_retries):
+                try:
+                    self.logger.info(f" Attempt {retry + 1}/{max_retries} to find last page...")
                     
-            except Exception as e:
-                self.logger.error(f"ERROR: Could not fetch last page number: {e}")
-                self.logger.info("FALLBACK: Using page 1000 as default starting point")
-                self.logger.info("=" * 80)
-                return 1000
+                    # CORRECTED: This now uses the proper XPath and container ID
+                    last_page = self.page_navigator.get_last_page_number()
+                    
+                    if last_page and last_page >= 1000:  # Reasonable validation (expecting high page numbers like 9547)
+                        self.logger.info(f" SUCCESS: Found actual last page = {last_page}")
+                        
+                        # CRITICAL: Navigate to the actual last page to verify it exists and start from there
+                        self.logger.info(f" NAVIGATING to the last page {last_page} to start scraping from there...")
+                        
+                        if self.page_navigator.handle_page_navigation(last_page):
+                            self.logger.info(f" Successfully navigated to page {last_page}")
+                            self.logger.info(f"STRATEGY: Will scrape backwards from {last_page} -> {last_page-1} -> ... -> 1")
+                            self.logger.info("=" * 80)
+                            return last_page
+                        else:
+                            self.logger.error(f" Failed to navigate to page {last_page}, trying fallback...")
+                            # Try a slightly lower page number
+                            fallback_page = last_page - 1
+                            if self.page_navigator.handle_page_navigation(fallback_page):
+                                self.logger.info(f" Fallback successful: Starting from page {fallback_page}")
+                                self.logger.info("=" * 80)
+                                return fallback_page
+                        
+                    elif last_page and last_page > 100:  # Accept reasonable page numbers
+                        self.logger.warning(f"Found page {last_page} - lower than expected but will use it")
+                        
+                        # Navigate to verify
+                        if self.page_navigator.handle_page_navigation(last_page):
+                            self.logger.info(f" Successfully navigated to page {last_page}")
+                            self.logger.info(f"STRATEGY: Will scrape backwards from {last_page} -> {last_page-1} -> ... -> 1")
+                            self.logger.info("=" * 80)
+                            return last_page
+                        
+                    else:
+                        self.logger.error(f" Invalid last page number: {last_page}")
+                        if retry < max_retries - 1:
+                            self.logger.info(f" Waiting 10 seconds before retry...")
+                            time.sleep(10)
+                            continue
+                        
+                except Exception as e:
+                    self.logger.error(f" Error on attempt {retry + 1}: {e}")
+                    if retry < max_retries - 1:
+                        self.logger.info(f" Waiting 10 seconds before retry...")
+                        time.sleep(10)
+                        continue
+            
+            # Final fallback - but try to navigate to it
+            fallback_page = 1000
+            self.logger.error(" CRITICAL: Could not determine actual last page after all attempts!")
+            self.logger.warning(f" FALLBACK: Trying to start from page {fallback_page}")
+            
+            if self.page_navigator.handle_page_navigation(fallback_page):
+                self.logger.info(f" Emergency fallback successful: Starting from page {fallback_page}")
+            else:
+                self.logger.error(" Even fallback navigation failed!")
+                
+            self.logger.info("=" * 80)
+            return fallback_page
+            
         else:
             self.logger.info(f"RESULT: Found {len(downloaded_videos)} existing downloads in progress.json")
             
-            # Step 2: Check last processed page
-            self.logger.info("Step 2: Checking last processed page...")
+            # Step 2: Check last processed page  
+            self.logger.info("Step 2: Checking last processed page for resume...")
             last_processed_page = self.progress_tracker.get_last_processed_page()
             
             if last_processed_page and last_processed_page >= 1:
-                self.logger.info(f"FOUND: Last processed page was {last_processed_page}")
-                self.logger.info(f"DECISION: Resuming from page {last_processed_page} going backwards")
-                self.logger.info(f"STRATEGY: Will scrape backwards from {last_processed_page} -> {last_processed_page-1} -> ... -> 1")
-                self.logger.info("REASON: This ensures we capture any new content added since last run")
-                self.logger.info("=" * 80)
-                return last_processed_page
-            else:
-                self.logger.info(f"WARNING: Invalid or missing last processed page: {last_processed_page}")
-                self.logger.info("DECISION: Falling back to fresh start from highest page")
+                self.logger.info(f" FOUND: Last processed page was {last_processed_page}")
                 
-                # Get last page from website as fallback
-                self.logger.info("Step 3: Fetching highest page number as fallback...")
-                try:
-                    last_page = self.page_navigator.get_last_page_number()
-                    self.logger.info(f"WEBSITE REPORTS: Highest page number is {last_page}")
-                    
-                    if last_page and last_page >= 1:
-                        self.logger.info(f"CONFIRMED: Starting from page {last_page} (highest page)")
+                # CRITICAL: Navigate to the resume page to verify it exists
+                self.logger.info(f" NAVIGATING to resume page {last_processed_page}...")
+                if self.page_navigator.handle_page_navigation(last_processed_page):
+                    self.logger.info(f" Successfully navigated to resume page {last_processed_page}")
+                    self.logger.info(f"DECISION: Resuming from page {last_processed_page} going backwards")
+                    self.logger.info(f"STRATEGY: Will scrape backwards from {last_processed_page} -> {last_processed_page-1} -> ... -> 1")
+                    self.logger.info("REASON: This ensures we capture any new content added since last run")
+                    self.logger.info("=" * 80)
+                    return last_processed_page
+                else:
+                    self.logger.error(f" Could not navigate to resume page {last_processed_page}")
+                    self.logger.info("DECISION: Resume page invalid, finding actual last page instead")
+            else:
+                self.logger.warning(f" Invalid or missing last processed page: {last_processed_page}")
+                self.logger.info("DECISION: Downloads exist but no valid last page - finding actual last page")
+            
+            # Get actual last page as fallback
+            self.logger.info("Step 3: Fetching actual last page as fallback...")
+            try:
+                last_page = self.page_navigator.get_last_page_number()
+                if last_page and last_page >= 1:
+                    # Navigate to verify
+                    if self.page_navigator.handle_page_navigation(last_page):
+                        self.logger.info(f" FALLBACK SUCCESS: Starting from page {last_page}")
                         self.logger.info(f"STRATEGY: Will scrape backwards from {last_page} -> {last_page-1} -> ... -> 1")
                         self.logger.info("=" * 80)
                         return last_page
                     else:
-                        self.logger.error(f"ERROR: Invalid last page number: {last_page}")
-                        self.logger.info("FALLBACK: Using page 1000 as default starting point")
-                        self.logger.info("=" * 80)
-                        return 1000
+                        self.logger.error(f" Invalid fallback page: {last_page}")
                         
-                except Exception as e:
-                    self.logger.error(f"ERROR: Could not fetch last page number: {e}")
-                    self.logger.info("FALLBACK: Using page 1000 as default starting point")
-                    self.logger.info("=" * 80)
-                    return 1000
-
+            except Exception as e:
+                self.logger.error(f" Error getting fallback page: {e}")
+            
+            # Final emergency fallback
+            emergency_page = 1000
+            self.logger.error(f" EMERGENCY FALLBACK: Trying page {emergency_page}")
+            if self.page_navigator.handle_page_navigation(emergency_page):
+                self.logger.info(f" Emergency navigation successful")
+            else:
+                self.logger.error(" Emergency navigation failed!")
+                
+            self.logger.info("=" * 80)
+            return emergency_page
+            
     async def run_backwards_scrape(self, start_page):
         """Run scrape from high page numbers going backwards to page 1"""
         current_page = start_page
