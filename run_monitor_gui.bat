@@ -1,5 +1,5 @@
 @echo off
-title VPS Monitor - GUI Dashboard  
+title VPS Monitor - GUI Dashboard
 echo.
 echo =====================================================
 echo   VPS SCRAPER MONITOR - GUI DASHBOARD
