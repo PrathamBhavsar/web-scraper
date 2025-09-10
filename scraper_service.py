@@ -95,9 +95,9 @@ class VideoScraperService(win32serviceutil.ServiceFramework):
             
             try:
                 from main_scraper import VideoScraper
-                self.logger.info("✅ Successfully imported VideoScraper")
+                self.logger.info(" Successfully imported VideoScraper")
             except ImportError as e:
-                self.logger.error(f"❌ Failed to import VideoScraper: {e}")
+                self.logger.error(f" Failed to import VideoScraper: {e}")
                 self.logger.error(f"Current directory: {os.getcwd()}")
                 self.logger.error(f"Files in directory: {os.listdir('.')}")
                 raise
@@ -107,7 +107,7 @@ class VideoScraperService(win32serviceutil.ServiceFramework):
                     # Create downloads directory with absolute path
                     downloads_path = "C:\\scraper_downloads"
                     os.makedirs(downloads_path, exist_ok=True)
-                    self.logger.info(f"✅ Downloads directory ready: {downloads_path}")
+                    self.logger.info(f" Downloads directory ready: {downloads_path}")
                     
                     # Create and run scraper
                     self.logger.info("Creating VideoScraper instance...")
@@ -122,7 +122,7 @@ class VideoScraperService(win32serviceutil.ServiceFramework):
                     
                     scraper.gui_force_stop_check = gui_stop_check
                     
-                    self.logger.info("🚀 Starting scraper execution...")
+                    self.logger.info(" Starting scraper execution...")
                     scraper.run()
                     
                     # If scraper finished normally, wait before restarting

@@ -5,7 +5,7 @@
     "download_path": "C:\\scraper_downloads\\",
     "delay_between_requests": 1000,
     "delay_between_pages": 5000,
-    "max_storage_gb": 100
+    "max_storage_gb": 1
   },
   "processing": {
     "mode": "direct",
