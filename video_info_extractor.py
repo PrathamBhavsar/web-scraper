@@ -192,70 +192,112 @@ class VideoInfoExtractor:
             return [{}] * len(video_urls)
 
     def create_complete_video_info_from_schemas(self, listing_data, detail_data):
-        """Create complete video info by combining listing and detail schema results"""
-        try:
-            video_info = {
-                "video_id": listing_data.get("video_id", ""),
-                "url": listing_data.get("video_link", ""),
-                "title": listing_data.get("title", ""),
-                "duration": listing_data.get("duration", ""),
-                "views": "",
-                "uploader": "",
-                "uploaded_by": "",  # NEW FIELD
-                "upload_date": listing_data.get("upload_date", ""),
-                "description": "",  # NEW FIELD
-                "categories": [],   # NEW FIELD
-                "artists": [],      # NEW FIELD
-                "tags": [],
-                "video_src": "",
-                "thumbnail_src": listing_data.get("thumbnail", "")
-            }
+            """Create complete video info by combining listing and detail schema results - UPDATED with quality selection"""
+            try:
+                video_info = {
+                    "video_id": listing_data.get("video_id", ""),
+                    "url": listing_data.get("video_link", ""),
+                    "title": listing_data.get("title", ""),
+                    "duration": listing_data.get("duration", ""),
+                    "views": "",
+                    "uploader": "",
+                    "uploaded_by": "",  # NEW FIELD
+                    "upload_date": listing_data.get("upload_date", ""),
+                    "description": "No description available",  # NEW FIELD
+                    "categories": [],   # NEW FIELD
+                    "artists": [],      # NEW FIELD
+                    "tags": [],
+                    "video_src": "",
+                    "thumbnail_src": listing_data.get("thumbnail", "")
+                }
 
-            # Merge detail data
-            if detail_data:
-                # Extract uploader
-                if detail_data.get("uploaded_by"):
-                    video_info["uploader"] = detail_data["uploaded_by"].strip()
-                    video_info["uploaded_by"] = detail_data["uploaded_by"].strip()
+                # Merge detail data
+                if detail_data:
+                    # Extract uploader/uploaded_by
+                    if detail_data.get("uploaded_by"):
+                        uploaded_by = detail_data["uploaded_by"].strip()
+                        video_info["uploader"] = uploaded_by
+                        video_info["uploaded_by"] = uploaded_by
 
-                # Extract tags
-                if detail_data.get("tags"):
-                    tags = self.parse_tags_from_text(detail_data["tags"])
-                    if tags:
-                        video_info["tags"] = tags
+                    # Extract description
+                    if detail_data.get("description"):
+                        desc = detail_data["description"].strip()
+                        if desc and len(desc) > 10:
+                            video_info["description"] = desc
 
-                # Extract video source
-                if detail_data.get("video_source"):
-                    video_src = detail_data["video_source"]
-                    if not video_src.startswith('http'):
-                        video_src = urljoin(self.base_url, video_src)
-                    video_info["video_src"] = video_src
+                    # Extract categories
+                    if detail_data.get("categories"):
+                        if isinstance(detail_data["categories"], list):
+                            categories = [cat.strip() for cat in detail_data["categories"] if cat and cat.strip()]
+                        elif isinstance(detail_data["categories"], str):
+                            categories = [detail_data["categories"].strip()] if detail_data["categories"].strip() else []
+                        else:
+                            categories = []
+                        
+                        if categories:
+                            video_info["categories"] = categories
 
-                # Extract poster/thumbnail from video element
-                if detail_data.get("video_poster") and not video_info["thumbnail_src"]:
-                    poster = detail_data["video_poster"]
-                    if not poster.startswith('http'):
-                        poster = urljoin(self.base_url, poster)
-                    video_info["thumbnail_src"] = poster
+                    # Extract artists
+                    if detail_data.get("artists"):
+                        if isinstance(detail_data["artists"], list):
+                            artists = [art.strip() for art in detail_data["artists"] if art and art.strip()]
+                        elif isinstance(detail_data["artists"], str):
+                            artists = [detail_data["artists"].strip()] if detail_data["artists"].strip() else []
+                        else:
+                            artists = []
+                        
+                        if artists:
+                            video_info["artists"] = artists
 
-                # UPDATED: Extract views from Crawl4AI data
-                if detail_data.get("views"):
-                    views_num = self.extract_views_from_crawl4ai(detail_data["views"])
-                    if views_num is not None:
-                        video_info["views"] = str(views_num)
+                    # Extract tags
+                    if detail_data.get("tags"):
+                        if isinstance(detail_data["tags"], list):
+                            tags = [tag.strip() for tag in detail_data["tags"] if tag and tag.strip() and not any(ignore in tag.lower() for ignore in ['suggest', 'mp4'])]
+                        else:
+                            tags = self.parse_tags_from_text(str(detail_data["tags"]))
+                        if tags:
+                            video_info["tags"] = tags
 
-                # Parse info details for additional metadata
-                if detail_data.get("info_details"):
-                    self.parse_info_details_text(video_info, detail_data["info_details"])
+                    # UPDATED: Extract video source with quality preference
+                    if detail_data.get("video_source"):
+                        video_src = detail_data["video_source"]
+                        if not video_src.startswith('http'):
+                            video_src = urljoin(self.base_url, video_src)
+                        video_info["video_src"] = video_src
+                        self.logger.info(f"Video source from Crawl4AI: {video_src}")
 
-            # Set defaults for missing values
-            self.set_default_values(video_info)
-            return video_info
+                    # Extract poster/thumbnail
+                    if detail_data.get("video_poster") and not video_info["thumbnail_src"]:
+                        poster = detail_data["video_poster"]
+                        if not poster.startswith('http'):
+                            poster = urljoin(self.base_url, poster)
+                        video_info["thumbnail_src"] = poster
 
-        except Exception as e:
-            self.logger.error(f"Error creating complete video info: {e}")
-            return self.create_video_info_from_listing_only(listing_data)
+                    # Extract views
+                    if detail_data.get("views"):
+                        views_num = self.extract_views_from_crawl4ai(detail_data["views"])
+                        if views_num is not None:
+                            video_info["views"] = str(views_num)
 
+                    # Extract duration
+                    if detail_data.get("duration") and not video_info["duration"]:
+                        video_info["duration"] = detail_data["duration"].strip()
+
+                    # Extract upload date
+                    if detail_data.get("upload_date") and not video_info["upload_date"]:
+                        upload_date = detail_data["upload_date"].strip()
+                        video_info["upload_date"] = upload_date
+                        epoch = self.date_parser.parse_upload_date_to_epoch(upload_date)
+                        if epoch:
+                            video_info["upload_date"] = int(epoch)
+
+                # Set defaults for missing values
+                self.set_default_values(video_info)
+                return video_info
+
+            except Exception as e:
+                self.logger.error(f"Error creating complete video info: {e}")
+                return self.create_video_info_from_listing_only(listing_data)
 
     def extract_views_from_crawl4ai(self, views_data):
         """Extract views number from Crawl4AI span data, prioritizing bracket numbers"""
@@ -338,13 +380,16 @@ class VideoInfoExtractor:
             self.logger.error(f"Error creating video info from listing: {e}")
             return None
         
+
     def extract_video_info(self, video_url):
-        """Main orchestrator method - enhanced with dual schema integration"""
+        """Main orchestrator method - UPDATED with comprehensive quality logging"""
         try:
             # Extract video ID first
             video_id = self.extract_video_id(video_url)
             if not video_id:
                 return None
+
+            self.logger.info(f"=== Starting video info extraction for {video_id} ===")
 
             # Try the new dual schema approach first
             loop = None
@@ -379,11 +424,23 @@ class VideoInfoExtractor:
                 self.logger.info("Crawl4AI data incomplete, supplementing with Selenium extraction")
                 self.supplement_with_selenium(video_info, video_url)
 
+            # Final check for video source quality if still missing
+            if not video_info.get("video_src"):
+                self.logger.warning("No video source found, attempting direct quality extraction...")
+                if self.driver_manager.navigate_to_page(video_url):
+                    video_info["video_src"] = self.extract_video_source()
+
             # Set defaults for missing values
             self.set_default_values(video_info)
 
-            # Log extracted information
+            # Log comprehensive extraction results
             self.log_extracted_info(video_info)
+            
+            # Additional quality logging if video source was found
+            if video_info.get("video_src"):
+                self.log_quality_extraction_summary(video_url, video_info["video_src"])
+
+            self.logger.info(f"=== Completed video info extraction for {video_id} ===")
             return video_info
 
         except Exception as e:
@@ -391,6 +448,54 @@ class VideoInfoExtractor:
             import traceback
             self.logger.error(traceback.format_exc())
             return None
+        
+
+    def log_quality_extraction_summary(self, video_url, final_video_src):
+        """Log a summary of quality extraction for debugging"""
+        try:
+            self.logger.info("=== QUALITY EXTRACTION SUMMARY ===")
+            
+            # Try to extract all available qualities for logging
+            if self.driver_manager.navigate_to_page(video_url):
+                all_qualities = self.extract_all_download_qualities()
+                
+                if all_qualities:
+                    self.logger.info(f"All available download qualities:")
+                    for i, quality in enumerate(all_qualities, 1):
+                        self.logger.info(f"  {i}. {quality['text']} ({quality['quality']}p) - {quality['url'][:60]}...")
+                    
+                    # Find which quality was selected
+                    selected_quality = None
+                    for quality in all_qualities:
+                        if quality['url'] == final_video_src:
+                            selected_quality = quality
+                            break
+                    
+                    if selected_quality:
+                        self.logger.info(f"SELECTED QUALITY: {selected_quality['text']} ({selected_quality['quality']}p)")
+                    else:
+                        self.logger.info(f"SELECTED QUALITY: Not from download section (fallback method used)")
+                else:
+                    self.logger.info("No download qualities found in download section")
+                
+                self.logger.info(f"FINAL VIDEO URL: {final_video_src}")
+            
+            self.logger.info("=== END QUALITY EXTRACTION SUMMARY ===")
+            
+        except Exception as e:
+            self.logger.error(f"Error in quality extraction summary: {e}")
+
+    def get_quality_priority_list(self):
+        """Get the quality priority list for reference"""
+        return [
+            {'quality': '4K/2160p', 'priority': 1},
+            {'quality': '1440p', 'priority': 2},
+            {'quality': '1080p', 'priority': 3},
+            {'quality': '720p', 'priority': 4},
+            {'quality': '480p', 'priority': 5},
+            {'quality': '360p', 'priority': 6},
+            {'quality': '240p', 'priority': 7},
+        ]
 
     def parse_views_number(self, views_text):
         """Convert view text like '24K' to actual numbers, prioritizing parentheses numbers"""
@@ -855,65 +960,66 @@ class VideoInfoExtractor:
             return "No description available"
           
     def supplement_with_selenium(self, video_info, video_url):
-        """Use Selenium to fill in missing information - UPDATED with better debugging"""
-        try:
-            # Navigate to video page if needed
-            if not self.driver_manager.navigate_to_page(video_url):
-                return
+            """Use Selenium to fill in missing information - UPDATED with quality selection"""
+            try:
+                # Navigate to video page if needed
+                if not self.driver_manager.navigate_to_page(video_url):
+                    return
 
-            self.logger.info(f"Starting Selenium supplementation for video {video_info.get('video_id', 'unknown')}")
+                self.logger.info(f"Starting Selenium supplementation for video {video_info.get('video_id', 'unknown')}")
 
-            # Extract missing fields using existing Selenium methods
-            if not video_info.get("title"):
-                self.logger.debug("Extracting title...")
-                video_info["title"] = self.extract_title()
+                # Extract missing fields
+                if not video_info.get("title"):
+                    self.logger.debug("Extracting title...")
+                    video_info["title"] = self.extract_title()
 
-            if not video_info.get("duration") or not video_info.get("views") or not video_info.get("upload_date"):
-                self.logger.debug("Extracting item info data...")
-                self.extract_item_info_data(video_info)
+                if not video_info.get("duration") or not video_info.get("views") or not video_info.get("upload_date"):
+                    self.logger.debug("Extracting item info data...")
+                    self.extract_item_info_data(video_info)
 
-            if not video_info.get("uploader"):
-                self.logger.debug("Extracting uploader...")
-                video_info["uploader"] = self.extract_uploader()
+                if not video_info.get("uploader"):
+                    self.logger.debug("Extracting uploader...")
+                    video_info["uploader"] = self.extract_uploader()
 
-            # NEW: Extract uploaded_by (can be same as uploader but using new XPath)
-            if not video_info.get("uploaded_by") or video_info["uploaded_by"] == "Unknown":
-                self.logger.debug("Extracting uploaded_by...")
-                video_info["uploaded_by"] = self.extract_uploaded_by()
+                # NEW: Extract uploaded_by
+                if not video_info.get("uploaded_by") or video_info["uploaded_by"] == "Unknown":
+                    self.logger.debug("Extracting uploaded_by...")
+                    video_info["uploaded_by"] = self.extract_uploaded_by()
 
-            # NEW: Extract description
-            if not video_info.get("description") or video_info["description"] == "No description available":
-                self.logger.debug("Extracting description...")
-                video_info["description"] = self.extract_description()
+                # NEW: Extract description
+                if not video_info.get("description") or video_info["description"] == "No description available":
+                    self.logger.debug("Extracting description...")
+                    video_info["description"] = self.extract_description()
 
-            # NEW: Extract categories
-            if not video_info.get("categories") or video_info["categories"] == ["uncategorized"]:
-                self.logger.debug("Extracting categories...")
-                video_info["categories"] = self.extract_categories()
+                # NEW: Extract categories
+                if not video_info.get("categories") or video_info["categories"] == ["uncategorized"]:
+                    self.logger.debug("Extracting categories...")
+                    video_info["categories"] = self.extract_categories()
 
-            # NEW: Extract artists
-            if not video_info.get("artists") or video_info["artists"] == ["unknown_artist"]:
-                self.logger.debug("Extracting artists...")
-                video_info["artists"] = self.extract_artists()
+                # NEW: Extract artists
+                if not video_info.get("artists") or video_info["artists"] == ["unknown_artist"]:
+                    self.logger.debug("Extracting artists...")
+                    video_info["artists"] = self.extract_artists()
 
-            if not video_info.get("tags") or video_info["tags"] == ["untagged"]:
-                self.logger.debug("Extracting tags...")
-                video_info["tags"] = self.extract_tags()
+                if not video_info.get("tags") or video_info["tags"] == ["untagged"]:
+                    self.logger.debug("Extracting tags...")
+                    video_info["tags"] = self.extract_tags()
 
-            if not video_info.get("thumbnail_src"):
-                self.logger.debug("Extracting thumbnail...")
-                video_info["thumbnail_src"] = self.extract_thumbnail_url()
+                if not video_info.get("thumbnail_src"):
+                    self.logger.debug("Extracting thumbnail...")
+                    video_info["thumbnail_src"] = self.extract_thumbnail_url()
 
-            if not video_info.get("video_src"):
-                self.logger.debug("Extracting video source...")
-                video_info["video_src"] = self.extract_video_source()
+                # UPDATED: Extract video source with quality selection
+                if not video_info.get("video_src"):
+                    self.logger.debug("Extracting video source with quality selection...")
+                    video_info["video_src"] = self.extract_video_source()
 
-            self.logger.info(f"Completed Selenium supplementation for video {video_info.get('video_id', 'unknown')}")
+                self.logger.info(f"Completed Selenium supplementation for video {video_info.get('video_id', 'unknown')}")
 
-        except Exception as e:
-            self.logger.error(f"Error in Selenium supplementation: {e}")
-            import traceback
-            self.logger.error(traceback.format_exc())
+            except Exception as e:
+                self.logger.error(f"Error in Selenium supplementation: {e}")
+                import traceback
+                self.logger.error(traceback.format_exc())
 
     def extract_uploader(self):
         """Get uploader name from page elements"""
@@ -1152,20 +1258,43 @@ class VideoInfoExtractor:
             return None
 
     def log_extracted_info(self, video_info):
-        """Log summary of extracted video information"""
+        """Log summary of extracted video information - UPDATED with quality info"""
         video_id = video_info["video_id"]
         self.logger.info(f"Extracted info for {video_id}:")
         self.logger.info(f" Title: '{video_info['title'][:50]}...'")
         self.logger.info(f" Duration: {video_info['duration']}")
         self.logger.info(f" Views: {video_info['views']}")
         self.logger.info(f" Uploader: {video_info['uploader']}")
-        self.logger.info(f" Uploaded by: {video_info['uploaded_by']}")  # NEW
+        self.logger.info(f" Uploaded by: {video_info['uploaded_by']}")
         self.logger.info(f" Upload date: {video_info['upload_date']}")
-        self.logger.info(f" Description: {video_info['description'][:50]}...")  # NEW
-        self.logger.info(f" Categories: {len(video_info['categories'])} categories - {video_info['categories']}")  # NEW
-        self.logger.info(f" Artists: {len(video_info['artists'])} artists - {video_info['artists']}")  # NEW
+        self.logger.info(f" Description: {video_info['description'][:50]}...")
+        self.logger.info(f" Categories: {len(video_info['categories'])} categories - {video_info['categories']}")
+        self.logger.info(f" Artists: {len(video_info['artists'])} artists - {video_info['artists']}")
         self.logger.info(f" Tags: {len(video_info['tags'])} tags")
-        self.logger.info(f" Video source: {'Found' if video_info['video_src'] else 'None'}")
+        
+        # NEW: Log video source with quality information
+        if video_info.get('video_src'):
+            self.logger.info(f" Video source: Found")
+            
+            # Try to determine quality from URL
+            video_url = video_info['video_src']
+            if '1080p' in video_url:
+                self.logger.info(f" Video quality: 1080p (from URL)")
+            elif '720p' in video_url:
+                self.logger.info(f" Video quality: 720p (from URL)")
+            elif '480p' in video_url:
+                self.logger.info(f" Video quality: 480p (from URL)")
+            elif '360p' in video_url:
+                self.logger.info(f" Video quality: 360p (from URL)")
+            elif '2160p' in video_url or '4k' in video_url.lower():
+                self.logger.info(f" Video quality: 4K/2160p (from URL)")
+            else:
+                self.logger.info(f" Video quality: Unknown")
+            
+            self.logger.info(f" Video URL: {video_url[:100]}...")
+        else:
+            self.logger.info(f" Video source: None")
+        
         self.logger.info(f" Thumbnail: {'Found' if video_info['thumbnail_src'] else 'None'}")
 
     def save_video_info_to_json(self, video_info, output_dir):
@@ -1243,3 +1372,221 @@ class VideoInfoExtractor:
 
         except Exception as e:
             self.logger.error(f"Error merging Crawl4AI data: {e}")
+
+    def extract_video_source_with_quality_selection(self):
+        """Get the best quality video URL from download section"""
+        try:
+            self.logger.info("Extracting video source with quality selection...")
+            
+            # Look for the download section
+            download_section_xpath = "//div[@class='row row_spacer']//div[@class='wrap'][.//div[@class='label' and text()='Download']]"
+            download_section = self.driver.find_element(By.XPATH, download_section_xpath)
+            self.logger.debug("Found download section")
+            
+            # Get all download links
+            download_links = download_section.find_elements(By.XPATH, ".//a[@class='tag_item']")
+            self.logger.info(f"Found {len(download_links)} download options")
+            
+            if not download_links:
+                self.logger.warning("No download links found in download section")
+                return self.extract_video_source_fallback()
+            
+            # Extract all qualities with their URLs
+            quality_options = []
+            for link in download_links:
+                try:
+                    link_text = link.text.strip()
+                    link_url = link.get_attribute('href')
+                    
+                    if link_url and link_text:
+                        quality_info = self.parse_quality_from_text(link_text)
+                        if quality_info:
+                            quality_options.append({
+                                'text': link_text,
+                                'url': link_url,
+                                'quality': quality_info['quality'],
+                                'resolution': quality_info['resolution'],
+                                'priority': quality_info['priority']
+                            })
+                            self.logger.debug(f"Found quality option: {link_text} -> {quality_info['quality']}p (priority: {quality_info['priority']})")
+                
+                except Exception as e:
+                    self.logger.warning(f"Error processing download link: {e}")
+                    continue
+            
+            if not quality_options:
+                self.logger.warning("No valid quality options found")
+                return self.extract_video_source_fallback()
+            
+            # Sort by priority (lower number = higher priority/better quality)
+            quality_options.sort(key=lambda x: x['priority'])
+            
+            # Log all found qualities
+            qualities_found = [f"{opt['quality']}p" for opt in quality_options]
+            self.logger.info(f"Available qualities: {', '.join(qualities_found)}")
+            
+            # Select the best quality (first after sorting)
+            best_quality = quality_options[0]
+            self.logger.info(f"Selected best quality: {best_quality['text']} ({best_quality['quality']}p)")
+            self.logger.info(f"Best quality URL: {best_quality['url']}")
+            
+            return best_quality['url']
+            
+        except NoSuchElementException:
+            self.logger.warning("Download section not found, trying fallback methods")
+            return self.extract_video_source_fallback()
+        except Exception as e:
+            self.logger.error(f"Error in quality selection: {e}")
+            return self.extract_video_source_fallback()
+
+    def parse_quality_from_text(self, text):
+        """Parse quality information from link text like 'MP4 1080p' or '4K MP4'"""
+        try:
+            text_lower = text.lower()
+            
+            # Quality mappings with priorities (lower = better)
+            quality_patterns = [
+                # 4K/2160p patterns
+                (r'(?:4k|2160p)', {'quality': 2160, 'resolution': '4K/2160p', 'priority': 1}),
+                (r'(?:1440p)', {'quality': 1440, 'resolution': '1440p', 'priority': 2}),
+                (r'(?:1080p)', {'quality': 1080, 'resolution': '1080p', 'priority': 3}),
+                (r'(?:720p)', {'quality': 720, 'resolution': '720p', 'priority': 4}),
+                (r'(?:480p)', {'quality': 480, 'resolution': '480p', 'priority': 5}),
+                (r'(?:360p?)', {'quality': 360, 'resolution': '360p', 'priority': 6}),
+                (r'(?:240p)', {'quality': 240, 'resolution': '240p', 'priority': 7}),
+            ]
+            
+            for pattern, quality_info in quality_patterns:
+                if re.search(pattern, text_lower):
+                    return quality_info
+            
+            # If no pattern matches, try to extract numbers
+            number_match = re.search(r'(\d{3,4})p?', text_lower)
+            if number_match:
+                quality_num = int(number_match.group(1))
+                if quality_num >= 2160:
+                    return {'quality': 2160, 'resolution': '4K/2160p', 'priority': 1}
+                elif quality_num >= 1440:
+                    return {'quality': 1440, 'resolution': '1440p', 'priority': 2}
+                elif quality_num >= 1080:
+                    return {'quality': 1080, 'resolution': '1080p', 'priority': 3}
+                elif quality_num >= 720:
+                    return {'quality': 720, 'resolution': '720p', 'priority': 4}
+                elif quality_num >= 480:
+                    return {'quality': 480, 'resolution': '480p', 'priority': 5}
+                elif quality_num >= 360:
+                    return {'quality': 360, 'resolution': '360p', 'priority': 6}
+                else:
+                    return {'quality': quality_num, 'resolution': f'{quality_num}p', 'priority': 8}
+            
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error parsing quality from '{text}': {e}")
+            return None
+
+    def extract_video_source_fallback(self):
+        """Fallback methods for video source extraction"""
+        try:
+            # Method 1: Try video player element
+            self.logger.debug("Trying video player element extraction...")
+            video_element = self.driver.find_element(By.XPATH, "//div[contains(@class, 'fp-player')]//video")
+            
+            # Try to get source from video element
+            video_src = video_element.get_attribute("src")
+            if not video_src:
+                # Try source elements within video
+                source_elements = video_element.find_elements(By.TAG_NAME, "source")
+                if source_elements:
+                    for source in source_elements:
+                        src = source.get_attribute("src")
+                        if src:
+                            video_src = src
+                            # Prefer higher quality sources
+                            if any(quality in src for quality in ['1080p', '2160p', '4k']):
+                                break
+            
+            if video_src:
+                result = video_src if video_src.startswith('http') else urljoin(self.base_url, video_src)
+                self.logger.info(f"Video source extracted from player: {result}")
+                return result
+            else:
+                self.logger.warning("Video element found but no source attribute")
+                
+        except NoSuchElementException:
+            self.logger.warning("Could not find video player element")
+        
+        # Method 2: Extract from page source
+        try:
+            self.logger.debug("Trying page source extraction...")
+            page_source = self.driver.page_source
+            
+            # Look for highest quality MP4 first
+            quality_patterns = [
+                r'https?://[^\s"\'<>]+(?:2160p|4k)[^\s"\'<>]*\.mp4[^\s"\'<>]*',
+                r'https?://[^\s"\'<>]+1080p[^\s"\'<>]*\.mp4[^\s"\'<>]*',
+                r'https?://[^\s"\'<>]+720p[^\s"\'<>]*\.mp4[^\s"\'<>]*',
+                r'https?://[^\s"\'<>]+480p[^\s"\'<>]*\.mp4[^\s"\'<>]*',
+                r'https?://[^\s"\'<>]+360p[^\s"\'<>]*\.mp4[^\s"\'<>]*',
+                r'https?://[^\s"\'<>]+\.mp4[^\s"\'<>]*'
+            ]
+            
+            for pattern in quality_patterns:
+                mp4_matches = re.findall(pattern, page_source)
+                if mp4_matches:
+                    result = mp4_matches[0]
+                    self.logger.info(f"Video source found via regex: {result}")
+                    return result
+            
+        except Exception as e:
+            self.logger.error(f"Page source extraction failed: {e}")
+        
+        self.logger.error("Could not find video source with any method")
+        return ""
+
+    def extract_video_source(self):
+        """Updated main video source extraction method"""
+        try:
+            # First try the quality selection method
+            quality_selected_url = self.extract_video_source_with_quality_selection()
+            if quality_selected_url:
+                return quality_selected_url
+            
+            # If that fails, use fallback methods
+            self.logger.warning("Quality selection failed, using fallback methods")
+            return self.extract_video_source_fallback()
+            
+        except Exception as e:
+            self.logger.error(f"Error in extract_video_source: {e}")
+            return ""
+
+    def extract_all_download_qualities(self):
+        """Extract all available download qualities for debugging/logging"""
+        try:
+            download_section_xpath = "//div[@class='row row_spacer']//div[@class='wrap'][.//div[@class='label' and text()='Download']]"
+            download_section = self.driver.find_element(By.XPATH, download_section_xpath)
+            
+            download_links = download_section.find_elements(By.XPATH, ".//a[@class='tag_item']")
+            
+            qualities = []
+            for link in download_links:
+                try:
+                    text = link.text.strip()
+                    url = link.get_attribute('href')
+                    if text and url:
+                        quality_info = self.parse_quality_from_text(text)
+                        if quality_info:
+                            qualities.append({
+                                'text': text,
+                                'url': url,
+                                'quality': quality_info['quality'],
+                                'resolution': quality_info['resolution']
+                            })
+                except Exception as e:
+                    continue
+            
+            return qualities
+            
+        except Exception as e:
+            self.logger.error(f"Error extracting download qualities: {e}")
+            return []
