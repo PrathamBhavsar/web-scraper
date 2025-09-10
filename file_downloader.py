@@ -685,3 +685,164 @@ class FileDownloader:
             return 0.0
         except Exception:
             return 0.0
+
+
+    def download_file(self, url: str, filepath: Path, progress_callback: Optional[Callable[[str, float], None]] = None) -> bool:
+        """
+        Enhanced download with comprehensive storage limit checking before and during download
+        """
+        filepath = Path(filepath)
+        video_id = filepath.stem
+        file_type = "thumbnail" if filepath.suffix.lower() in ['.jpg', '.jpeg', '.png', '.webp'] else "video"
+
+        try:
+            # PHASE 1: Pre-download storage limit check
+            expected_size = self._get_expected_size(url, timeout=10)
+            expected_size_mb = (expected_size / (1024 * 1024)) if expected_size else 50  # Default 50MB estimate
+
+            # Check storage limits using progress.json data
+            if hasattr(self, '_check_storage_limits_with_progress'):
+                storage_ok = self._check_storage_limits_with_progress(expected_size_mb)
+                if not storage_ok:
+                    self.log_error(f" STORAGE LIMIT: Cannot download {filepath.name} - would exceed storage limit")
+                    return False
+
+            # For thumbnails, skip progress tracker checks (they're not tracked separately)
+            if file_type == "video":
+                # CRITICAL: Check progress tracker FIRST before any download attempt
+                from progress_tracker import ProgressTracker
+                progress_tracker = ProgressTracker()
+                
+                if progress_tracker.is_video_downloaded(video_id):
+                    self.log_info(f"SKIPPING: Video {video_id} already recorded in progress.json")
+                    return True
+
+                # SECOND: Check if folder/file already exists and is valid
+                if self.file_validator.validate_video_folder(video_id):
+                    self.log_info(f"SKIPPING: Video {video_id} folder exists and is valid")
+                    # If for some reason not in progress tracker, add it now (but don't count size again)
+                    if not progress_tracker.is_video_downloaded(video_id):
+                        progress_tracker.update_download_stats(video_id, 0)  # 0 MB since it already exists
+                        self.log_info(f"Added existing video {video_id} to progress tracker")
+                    return True
+
+            # Check if the specific file already exists and is valid size
+            if filepath.exists():
+                file_size = filepath.stat().st_size
+                validation_config = self.config.get("validation", {})
+                
+                if file_type == "thumbnail":
+                    min_size = int(validation_config.get("min_thumbnail_size_bytes", 100) or 100)
+                else:
+                    min_size = int(validation_config.get("min_video_size_bytes", 1024) or 1024)
+
+                if file_size >= min_size:
+                    self.log_info(f"SKIPPING: {file_type.title()} file already exists and is valid: {filepath.name} ({file_size} bytes)")
+                    return True
+                else:
+                    self.log_info(f"Existing {file_type} file too small ({file_size} bytes), will re-download: {filepath.name}")
+
+            # If we reach here, the file is NOT downloaded and needs to be processed
+            self.log_info(f"PROCEEDING: {file_type.title()} {filepath.name} not found or invalid - will download")
+
+            self._ensure_parent(filepath)
+
+            # Thread-safe current download tracking
+            with self.progress_lock:
+                self.current_download = filepath.name
+
+            # Final storage check before starting download
+            if not self._check_storage_space_before_download(expected_size):
+                self.log_error(f"Insufficient storage space for download: {filepath.name}")
+                return False
+
+            # Choose download method based on configuration
+            download_method = self.config.get("download", {}).get("download_method", "direct")
+            
+            if download_method == "idm":
+                success = self._idm_download(url, filepath, progress_callback=progress_callback)
+            else:
+                success = self._requests_stream_download(url, filepath, progress_callback=progress_callback)
+
+            if success:
+                self.log_info(f"{file_type.title()} download completed successfully: {filepath.name}")
+                
+                # PHASE 2: Post-download storage verification for videos
+                if file_type == "video" and filepath.exists():
+                    actual_size_mb = filepath.stat().st_size / (1024 * 1024)
+                    
+                    # Check if this actual size would still be within limits
+                    if hasattr(self, '_verify_post_download_storage'):
+                        storage_still_ok = self._verify_post_download_storage(actual_size_mb)
+                        if not storage_still_ok:
+                            self.log_warning(f"  Post-download storage check failed for {filepath.name}")
+                            # Don't delete the file, but warn about storage
+            else:
+                self.log_error(f"{file_type.title()} download failed: {filepath.name}")
+
+            return success
+
+        except Exception as e:
+            self.log_error(f"Unexpected error in download_file for {file_type} {filepath.name}: {e}")
+            return False
+
+    def _check_storage_limits_with_progress(self, expected_size_mb):
+        """
+        Check storage limits using progress.json data (faster than disk scanning)
+        """
+        try:
+            from progress_tracker import ProgressTracker
+            progress_tracker = ProgressTracker()
+            
+            # Get max storage from config
+            max_storage_gb = self.config.get("general", {}).get("max_storage_gb", 100)
+            
+            # Check if adding this file would exceed limits
+            can_add, current_gb, projected_gb, warning = progress_tracker.check_storage_limit_before_update(
+                expected_size_mb, max_storage_gb
+            )
+            
+            if not can_add:
+                self.log_error(f" STORAGE LIMIT: Cannot download file")
+                self.log_error(f"Current: {current_gb:.2f} GB + Expected: {expected_size_mb/1024:.2f} GB = {projected_gb:.2f} GB > {max_storage_gb} GB")
+                return False
+            
+            if warning:
+                self.log_warning(f"  STORAGE WARNING: Close to limit after download ({projected_gb:.2f} GB / {max_storage_gb} GB)")
+            
+            return True
+            
+        except Exception as e:
+            self.log_error(f"Error checking storage limits with progress: {e}")
+            return True  # Allow download on error to avoid blocking
+
+    def _verify_post_download_storage(self, actual_size_mb):
+        """
+        Verify storage is still within limits after download completes
+        """
+        try:
+            from progress_tracker import ProgressTracker
+            progress_tracker = ProgressTracker()
+            
+            max_storage_gb = self.config.get("general", {}).get("max_storage_gb", 100)
+            current_usage_gb = progress_tracker.get_current_storage_usage_gb()
+            usage_percentage = progress_tracker.get_storage_usage_percentage(max_storage_gb)
+            
+            self.log_info(f"Post-download storage: {current_usage_gb:.2f} GB / {max_storage_gb} GB ({usage_percentage:.1f}%)")
+            
+            # Check if we're over the limit
+            if current_usage_gb > max_storage_gb:
+                self.log_warning(f"  POST-DOWNLOAD: Storage limit exceeded!")
+                progress_tracker.add_storage_limit_reached_flag()
+                return False
+            
+            # Check if we're very close to limit (98%)
+            if usage_percentage >= 98:
+                self.log_warning(f"  POST-DOWNLOAD: Storage nearly full ({usage_percentage:.1f}%)")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            self.log_error(f"Error in post-download storage verification: {e}")
+            return True  # Don't fail on verification errors

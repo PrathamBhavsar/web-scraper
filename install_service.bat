@@ -91,7 +91,7 @@ if %errorLevel% equ 0 (
     echo.
 ) else (
     echo.
-    echo ⚠️ Service installed but failed to start.
+    echo  Service installed but failed to start.
     echo Check the log file for details: scraper_service.log
     echo.
 )

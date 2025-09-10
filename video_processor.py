@@ -414,3 +414,286 @@ class VideoProcessor:
         
         self.log_info(f"Batch processing completed: {results['successful']} successful, {results['failed']} failed")
         return results
+    
+
+    def process_video_parallel_safe(self, video_info, max_retries, page_num):
+        """
+        Enhanced video processing with comprehensive storage limit checking
+        """
+        video_id = video_info["video_id"]
+        
+        try:
+            # PHASE 1: Pre-processing storage check
+            if not self._check_storage_before_video_processing(video_id):
+                self.logger.warning(f" STORAGE LIMIT: Skipping video {video_id} - storage limit reached")
+                return False
+            
+            # PHASE 2: Check if already processed
+            if self.progress_tracker.is_video_downloaded(video_id):
+                self.logger.info(f"SKIPPING: Video {video_id} already downloaded")
+                return True
+            
+            if self.progress_tracker.is_video_failed(video_id):
+                self.logger.info(f"SKIPPING: Video {video_id} previously failed")
+                return True
+            
+            # PHASE 3: Validate video folder exists and is complete
+            if self.file_validator.validate_video_folder(video_id):
+                self.logger.info(f"SKIPPING: Video {video_id} folder already valid")
+                # Add to progress if not already there
+                if not self.progress_tracker.is_video_downloaded(video_id):
+                    # Calculate existing file size
+                    existing_size = self._calculate_existing_video_size(video_id)
+                    self.progress_tracker.update_download_stats(video_id, existing_size, page_num)
+                return True
+            
+            # PHASE 4: Process the video with storage monitoring
+            self.logger.info(f"PROCESSING: Video {video_id} needs full processing")
+            
+            success = self._process_video_with_storage_monitoring(video_info, max_retries, page_num)
+            
+            if success:
+                self.logger.info(f"✓ SUCCESS: Video {video_id} processed completely")
+            else:
+                self.logger.error(f"✗ FAILED: Video {video_id} processing failed")
+                self.progress_tracker.add_failed_video(video_id)
+            
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"Error in parallel-safe video processing for {video_id}: {e}")
+            self.progress_tracker.add_failed_video(video_id)
+            return False
+
+    def _check_storage_before_video_processing(self, video_id):
+        """
+        Check storage limits before starting video processing
+        """
+        try:
+            max_storage_gb = self.config.get("general", {}).get("max_storage_gb", 100)
+            
+            # Check current storage status
+            if self.progress_tracker.is_storage_limit_reached(max_storage_gb, threshold=0.95):
+                self.logger.warning(f" STORAGE LIMIT: 95% threshold reached, stopping video processing")
+                return False
+            
+            # Estimate space needed for average video (video + thumbnail + metadata)
+            estimated_video_mb = 100  # Conservative estimate
+            
+            can_add, current_gb, projected_gb, warning = self.progress_tracker.check_storage_limit_before_update(
+                estimated_video_mb, max_storage_gb
+            )
+            
+            if not can_add:
+                self.logger.warning(f" STORAGE LIMIT: Cannot process video {video_id}")
+                self.logger.warning(f"Would exceed limit: {projected_gb:.2f} GB > {max_storage_gb} GB")
+                return False
+            
+            if warning:
+                self.logger.warning(f"  STORAGE WARNING: Close to limit, will process {video_id} but monitoring closely")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error checking storage before video processing: {e}")
+            return True  # Allow processing on error
+
+    def _process_video_with_storage_monitoring(self, video_info, max_retries, page_num):
+        """
+        Process video with continuous storage monitoring
+        """
+        video_id = video_info["video_id"]
+        
+        try:
+            # Get download path
+            download_path = Path(self.config.get("general", {}).get("download_path", "C:\\scraper_downloads\\"))
+            video_dir = download_path / video_id
+            video_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Pre-processing storage check
+            max_storage_gb = self.config.get("general", {}).get("max_storage_gb", 100)
+            pre_process_gb = self.progress_tracker.get_current_storage_usage_gb()
+            
+            self.logger.info(f"Starting video processing: {video_id}")
+            self.logger.info(f"Pre-processing storage: {pre_process_gb:.2f} GB / {max_storage_gb} GB")
+            
+            # STEP 1: Save metadata with storage check
+            if not self._save_metadata_with_storage_check(video_info, video_dir):
+                return False
+            
+            # STEP 2: Download video with storage monitoring
+            if not self._download_video_with_storage_monitoring(video_info, video_dir, page_num):
+                return False
+            
+            # STEP 3: Download thumbnail with storage check
+            if not self._download_thumbnail_with_storage_check(video_info, video_dir):
+                # Thumbnail failure is not critical, continue
+                self.logger.warning(f"Thumbnail failed for {video_id}, but continuing")
+            
+            # STEP 4: Final validation and progress update
+            return self._finalize_video_processing_with_storage(video_info, video_dir, page_num)
+            
+        except Exception as e:
+            self.logger.error(f"Error in storage-monitored video processing for {video_id}: {e}")
+            return False
+
+    def _save_metadata_with_storage_check(self, video_info, video_dir):
+        """Save video metadata with storage checking"""
+        try:
+            video_id = video_info["video_id"]
+            json_file = video_dir / f"{video_id}.json"
+            
+            # Check storage before saving (metadata is small, but check anyway)
+            if self.progress_tracker.is_storage_limit_reached(
+                self.config.get("general", {}).get("max_storage_gb", 100), 
+                threshold=0.99
+            ):
+                self.logger.warning(f" STORAGE CRITICAL: Cannot save metadata for {video_id}")
+                return False
+            
+            # Save metadata
+            with open(json_file, 'w', encoding='utf-8') as f:
+                json.dump(video_info, f, indent=2, ensure_ascii=False)
+            
+            self.logger.info(f"✓ Metadata saved for {video_id}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error saving metadata for {video_info.get('video_id', 'unknown')}: {e}")
+            return False
+
+    def _download_video_with_storage_monitoring(self, video_info, video_dir, page_num):
+        """Download video with continuous storage monitoring"""
+        try:
+            video_id = video_info["video_id"]
+            video_src = video_info.get("video_src")
+            
+            if not video_src:
+                self.logger.error(f"No video source URL for {video_id}")
+                return False
+            
+            video_file = video_dir / f"{video_id}.mp4"
+            
+            # Pre-download storage check
+            max_storage_gb = self.config.get("general", {}).get("max_storage_gb", 100)
+            if self.progress_tracker.is_storage_limit_reached(max_storage_gb, threshold=0.95):
+                self.logger.warning(f" STORAGE LIMIT: Cannot download video {video_id}")
+                return False
+            
+            # Download video
+            self.logger.info(f"Downloading video: {video_id}")
+            success = self.file_downloader.download_video(video_src, video_file)
+            
+            if success and video_file.exists():
+                # Calculate actual downloaded size
+                actual_size_mb = video_file.stat().st_size / (1024 * 1024)
+                
+                # Post-download storage verification
+                post_download_gb = self.progress_tracker.get_current_storage_usage_gb()
+                usage_pct = self.progress_tracker.get_storage_usage_percentage(max_storage_gb)
+                
+                self.logger.info(f"✓ Video downloaded: {video_id} ({actual_size_mb:.2f} MB)")
+                self.logger.info(f"Post-download storage: {post_download_gb:.2f} GB / {max_storage_gb} GB ({usage_pct:.1f}%)")
+                
+                # Check if we're now over the limit
+                if post_download_gb > max_storage_gb:
+                    self.logger.warning(f"  STORAGE EXCEEDED after downloading {video_id}")
+                    self.progress_tracker.add_storage_limit_reached_flag()
+                
+                return True
+            else:
+                self.logger.error(f"Video download failed: {video_id}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error downloading video {video_info.get('video_id', 'unknown')}: {e}")
+            return False
+
+    def _download_thumbnail_with_storage_check(self, video_info, video_dir):
+        """Download thumbnail with storage checking"""
+        try:
+            video_id = video_info["video_id"]
+            thumbnail_src = video_info.get("thumbnail_src")
+            
+            if not thumbnail_src:
+                self.logger.warning(f"No thumbnail source for {video_id}")
+                return False
+            
+            # Quick storage check (thumbnails are small, but check if we're at critical level)
+            max_storage_gb = self.config.get("general", {}).get("max_storage_gb", 100)
+            if self.progress_tracker.is_storage_limit_reached(max_storage_gb, threshold=0.99):
+                self.logger.warning(f" STORAGE CRITICAL: Skipping thumbnail for {video_id}")
+                return False
+            
+            # Download thumbnail
+            success = self.file_downloader.download_thumbnail(thumbnail_src, video_id, video_dir)
+            
+            if success:
+                self.logger.info(f"✓ Thumbnail downloaded: {video_id}")
+            else:
+                self.logger.warning(f"Thumbnail download failed: {video_id}")
+            
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"Error downloading thumbnail for {video_info.get('video_id', 'unknown')}: {e}")
+            return False
+
+    def _finalize_video_processing_with_storage(self, video_info, video_dir, page_num):
+        """Finalize video processing with storage tracking"""
+        try:
+            video_id = video_info["video_id"]
+            
+            # Calculate total size of downloaded files
+            total_size_mb = 0
+            for file_path in video_dir.iterdir():
+                if file_path.is_file():
+                    total_size_mb += file_path.stat().st_size / (1024 * 1024)
+            
+            # Final validation
+            is_valid, validation_errors = self.file_validator.validate_complete_download(video_info, video_dir)
+            
+            if is_valid:
+                # Update progress tracker with actual size
+                self.progress_tracker.update_download_stats(video_id, total_size_mb, page_num)
+                
+                # Final storage status
+                final_usage_gb = self.progress_tracker.get_current_storage_usage_gb()
+                max_storage_gb = self.config.get("general", {}).get("max_storage_gb", 100)
+                usage_pct = self.progress_tracker.get_storage_usage_percentage(max_storage_gb)
+                
+                self.logger.info(f"✓ COMPLETE: Video {video_id} processing finished ({total_size_mb:.2f} MB)")
+                self.logger.info(f"Current storage: {final_usage_gb:.2f} GB / {max_storage_gb} GB ({usage_pct:.1f}%)")
+                
+                # Check if we should stop due to storage limits
+                if usage_pct >= 95:
+                    self.logger.warning(f"  STORAGE WARNING: {usage_pct:.1f}% full - consider stopping soon")
+                
+                return True
+            else:
+                self.logger.error(f"Final validation failed for {video_id}: {validation_errors}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error finalizing video processing for {video_info.get('video_id', 'unknown')}: {e}")
+            return False
+
+    def _calculate_existing_video_size(self, video_id):
+        """Calculate size of existing video files in MB"""
+        try:
+            download_path = Path(self.config.get("general", {}).get("download_path", "C:\\scraper_downloads\\"))
+            video_dir = download_path / video_id
+            
+            if not video_dir.exists():
+                return 0
+            
+            total_size_mb = 0
+            for file_path in video_dir.iterdir():
+                if file_path.is_file():
+                    total_size_mb += file_path.stat().st_size / (1024 * 1024)
+            
+            return total_size_mb
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating existing video size for {video_id}: {e}")
+            return 0

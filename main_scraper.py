@@ -155,18 +155,184 @@ class VideoScraper:
             self.logger.error(f"Error checking storage limits: {e}")
             return False, 0.0
 
+
+    def check_storage_limits_from_progress(self, force_check=False):
+        """
+        Enhanced storage limit checking using progress.json data
+        Returns tuple (is_limit_reached, current_usage_gb, usage_percentage)
+        """
+        current_time = time.time()
+        
+        # Skip frequent checks unless forced
+        if not force_check and (current_time - self.last_storage_check) < self.storage_check_interval:
+            # Get cached values from progress.json for quick checks
+            with self.progress_tracker._lock:
+                current_usage_mb = self.progress_tracker.progress.get("total_size_mb", 0)
+                current_usage_gb = current_usage_mb / 1024
+                usage_percentage = (current_usage_gb / self.max_storage_gb) * 100
+                is_limit_reached = current_usage_gb >= self.max_storage_gb
+                return is_limit_reached, current_usage_gb, usage_percentage
+
+        self.last_storage_check = current_time
+
+        try:
+            # Get current usage from progress.json (much faster than disk scanning)
+            current_usage_mb = self.progress_tracker.progress.get("total_size_mb", 0)
+            current_usage_gb = current_usage_mb / 1024
+            usage_percentage = (current_usage_gb / self.max_storage_gb) * 100
+
+            # Log current usage periodically
+            self.logger.info(f"Storage usage (from progress.json): {current_usage_gb:.2f} GB / {self.max_storage_gb} GB ({usage_percentage:.1f}%)")
+
+            # Check for 90% warning threshold
+            if current_usage_gb >= (self.max_storage_gb * self.warning_threshold):
+                if not hasattr(self, '_warning_logged') or not self._warning_logged:
+                    self.logger.warning(f"  WARNING: Storage usage is above 90%! Current: {current_usage_gb:.2f} GB ({usage_percentage:.1f}%)")
+                    self.logger.warning(f"Approaching storage limit of {self.max_storage_gb} GB. Consider increasing max_storage_gb in config.json")
+                    self._warning_logged = True
+
+            # Check if limit is reached or exceeded
+            if current_usage_gb >= self.max_storage_gb:
+                self.logger.error(f" STORAGE LIMIT REACHED: {current_usage_gb:.2f} GB / {self.max_storage_gb} GB")
+                self.logger.error("Triggering immediate stop to prevent exceeding storage limit")
+                
+                # Set force stop flag to stop all processing
+                self.force_stop_requested = True
+                return True, current_usage_gb, usage_percentage
+
+            # Check for very close to limit (95% threshold for early stop)
+            if current_usage_gb >= (self.max_storage_gb * 0.95):
+                self.logger.warning(f"🟡 STORAGE NEARLY FULL: {current_usage_gb:.2f} GB / {self.max_storage_gb} GB ({usage_percentage:.1f}%)")
+                self.logger.warning("Will stop processing after current operations complete to prevent overflow")
+                
+                # Set force stop flag for graceful shutdown
+                self.force_stop_requested = True
+                return True, current_usage_gb, usage_percentage
+
+            return False, current_usage_gb, usage_percentage
+
+        except Exception as e:
+            self.logger.error(f"Error checking storage limits from progress: {e}")
+            return False, 0.0, 0.0
+
+
+
+    def check_storage_before_download(self, expected_size_mb=0):
+        """
+        Check storage limits before starting any download
+        Returns True if download should proceed, False if storage limit would be exceeded
+        """
+        try:
+            current_usage_mb = self.progress_tracker.progress.get("total_size_mb", 0)
+            projected_usage_mb = current_usage_mb + expected_size_mb
+            projected_usage_gb = projected_usage_mb / 1024
+
+            if projected_usage_gb > self.max_storage_gb:
+                current_gb = current_usage_mb / 1024
+                expected_gb = expected_size_mb / 1024
+                self.logger.warning(f" DOWNLOAD BLOCKED: Would exceed storage limit")
+                self.logger.warning(f"Current: {current_gb:.2f} GB + Expected: {expected_gb:.2f} GB = {projected_usage_gb:.2f} GB > {self.max_storage_gb} GB")
+                
+                # Trigger force stop
+                self.force_stop_requested = True
+                return False
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error checking storage before download: {e}")
+            return True  # Allow download on error to avoid blocking
+
+    def enhanced_force_stop_check(self):
+        """
+        Enhanced force stop checking that includes storage limits
+        """
+        # Check GUI force stop if available
+        if hasattr(self, 'gui_force_stop_check') and callable(self.gui_force_stop_check):
+            if self.gui_force_stop_check():
+                self.force_stop_requested = True
+
+        # Check storage limits (quick check using cached data)
+        storage_limit_reached, usage_gb, usage_pct = self.check_storage_limits_from_progress(force_check=False)
+        if storage_limit_reached:
+            if not hasattr(self, '_storage_stop_logged'):
+                self.logger.error(f" FORCE STOP: Storage limit reached ({usage_gb:.2f} GB / {self.max_storage_gb} GB)")
+                self._storage_stop_logged = True
+            self.force_stop_requested = True
+
+        # Check internal force stop flag
+        if hasattr(self, 'force_stop_requested') and self.force_stop_requested:
+            return True
+
+        return False
+    
+        
+    def stop_all_processing_gracefully(self, reason="Force stop requested"):
+        """
+        Gracefully stop all processing threads and operations
+        """
+        self.logger.warning(f" STOPPING ALL PROCESSING: {reason}")
+        
+        # Set the force stop flag
+        self.force_stop_requested = True
+        
+        # Cancel any running async tasks
+        try:
+            import asyncio
+            current_loop = None
+            try:
+                current_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                pass
+                
+            if current_loop:
+                # Cancel all pending tasks
+                tasks = [task for task in asyncio.all_tasks(current_loop) if not task.done()]
+                if tasks:
+                    self.logger.info(f"Cancelling {len(tasks)} async tasks...")
+                    for task in tasks:
+                        task.cancel()
+        except Exception as e:
+            self.logger.debug(f"Error cancelling async tasks: {e}")
+        
+        # Close webdriver if active
+        try:
+            if hasattr(self, 'web_driver_manager'):
+                self.web_driver_manager.close_driver()
+                self.logger.info("WebDriver closed successfully")
+        except Exception as e:
+            self.logger.error(f"Error closing WebDriver: {e}")
+        
+        # Log final statistics
+        try:
+            stats = self.progress_tracker.get_stats()
+            usage_gb = stats.get('total_size_mb', 0) / 1024
+            self.logger.info(f"Final statistics at stop:")
+            self.logger.info(f"  Total downloaded: {stats.get('total_downloaded', 0)} videos")
+            self.logger.info(f"  Total size: {usage_gb:.2f} GB")
+            self.logger.info(f"  Storage utilization: {(usage_gb / self.max_storage_gb) * 100:.1f}%")
+        except Exception as e:
+            self.logger.debug(f"Error logging final stats: {e}")
+        
+        self.logger.warning(" ALL PROCESSING STOPPED")
+
+
+    # Update the run method to use enhanced storage checking
     def run(self):
-        """Main execution loop - smart resume with backwards-only scraping + FORCE STOP SUPPORT"""
+        """Main execution loop - enhanced with comprehensive storage limit checking"""
         try:
             # Initialize force stop flag for GUI integration
             if not hasattr(self, 'force_stop_requested'):
                 self.force_stop_requested = False
 
-            # Initial storage check
-            limit_reached, usage_gb = self.check_storage_limits(force_check=True)
+            # Initial storage check using progress.json data (much faster)
+            limit_reached, usage_gb, usage_pct = self.check_storage_limits_from_progress(force_check=True)
             if limit_reached:
-                self.logger.error("Storage limit already reached. Cannot start scraping.")
+                self.logger.error(f"Storage limit already reached at startup: {usage_gb:.2f} GB / {self.max_storage_gb} GB")
+                self.logger.error("Cannot start scraping. Please increase max_storage_gb or clean up downloads.")
                 return
+
+            self.logger.info(f"Starting scraper with {usage_gb:.2f} GB / {self.max_storage_gb} GB used ({usage_pct:.1f}%)")
 
             # Setup driver
             self.web_driver_manager.setup_driver()
@@ -180,14 +346,14 @@ class VideoScraper:
 
         except KeyboardInterrupt:
             self.logger.info("Scraping interrupted by user (Ctrl+C)")
-            current_usage = self.get_download_folder_size()
-            self.logger.info(f"Usage at interruption: {current_usage / (1024**3):.2f} GB")
+            self.stop_all_processing_gracefully("User interrupt (Ctrl+C)")
         except Exception as e:
             if hasattr(self, 'force_stop_requested') and self.force_stop_requested:
                 self.logger.info("Scraper stopped due to force stop request")
             else:
                 self.logger.error(f"Unexpected error in main loop: {e}")
                 traceback.print_exc()
+            self.stop_all_processing_gracefully(f"Error: {str(e)}")
         finally:
             try:
                 self.web_driver_manager.close_driver()
@@ -195,24 +361,14 @@ class VideoScraper:
                 self.logger.error(f"Error during cleanup: {e}")
 
             if hasattr(self, 'force_stop_requested') and self.force_stop_requested:
-                self.logger.info("Scraper force stopped by user")
+                self.logger.info("Scraper force stopped")
             else:
                 self.logger.info("Scraper finished normally")
 
     def check_force_stop(self):
-        """Check if force stop was requested (for GUI integration)"""
-        # Check GUI force stop if available
-        if hasattr(self, 'gui_force_stop_check') and callable(self.gui_force_stop_check):
-            if self.gui_force_stop_check():
-                self.force_stop_requested = True
-                
-        # Check internal force stop flag
-        if hasattr(self, 'force_stop_requested') and self.force_stop_requested:
-            self.logger.warning("🛑 FORCE STOP DETECTED - Aborting current operation")
-            return True
-            
-        return False
-
+        """Updated force stop check that includes storage limits"""
+        return self.enhanced_force_stop_check()
+    
     def determine_start_strategy(self):
         """
         CORRECTED: Determine starting page and NAVIGATE to it properly
@@ -409,7 +565,7 @@ class VideoScraper:
         while current_page >= 1:
             # Check for force stop before each page
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping backwards scrape")
+                self.logger.warning(" FORCE STOP REQUESTED - Stopping backwards scrape")
                 break
 
             # Check storage before each page
@@ -426,7 +582,7 @@ class VideoScraper:
             try:
                 # Check force stop before processing page
                 if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping before page processing")
+                    self.logger.warning(" FORCE STOP REQUESTED - Stopping before page processing")
                     break
 
                 # Process page synchronously
@@ -448,7 +604,7 @@ class VideoScraper:
 
             except Exception as e:
                 if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP during page processing")
+                    self.logger.warning(" FORCE STOP during page processing")
                     break
 
                 self.logger.error(f"Error processing page {current_page}: {e}")
@@ -487,7 +643,7 @@ class VideoScraper:
 
             for i, video_url in enumerate(video_links, 1):
                 if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP during video processing")
+                    self.logger.warning(" FORCE STOP during video processing")
                     break
 
                 try:
@@ -535,44 +691,49 @@ class VideoScraper:
 
         while total_waited < page_delay:
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Interrupting page delay")
+                self.logger.warning(" FORCE STOP REQUESTED - Interrupting page delay")
                 break
 
             time.sleep(min(wait_increment, page_delay - total_waited))
             total_waited += wait_increment
-            
+
+
+    # Update the backwards scrape methods to use enhanced storage checking
     async def run_backwards_scrape(self, start_page):
-        """Run scrape from high page numbers going backwards to page 1 + FORCE STOP SUPPORT"""
+        """Run scrape from high page numbers going backwards with enhanced storage monitoring"""
         current_page = start_page
-        self.logger.info(f"STARTING BACKWARDS SCRAPE")
+
+        self.logger.info(f"STARTING BACKWARDS SCRAPE WITH ENHANCED STORAGE MONITORING")
         self.logger.info(f"Begin page: {start_page}")
+        self.logger.info(f"Storage limit: {self.max_storage_gb} GB")
         self.logger.info(f"Direction: BACKWARDS (high to low)")
-        self.logger.info(f"Page sequence example: {start_page} -> {max(1, start_page-1)} -> {max(1, start_page-2)} -> ... -> 1")
 
         while current_page >= 1:
-            # CRITICAL: Check for force stop before each page
-            if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping backwards scrape")
+            # Enhanced force stop check (includes storage limits)
+            if self.enhanced_force_stop_check():
+                self.logger.warning(" ENHANCED FORCE STOP - Stopping backwards scrape")
                 break
-                
-            # Check storage before each page
-            limit_reached, usage_gb = self.check_storage_limits()
+
+            # Detailed storage check before each page
+            limit_reached, usage_gb, usage_pct = self.check_storage_limits_from_progress(force_check=True)
             if limit_reached:
-                self.logger.info("Storage limit reached, stopping scrape")
+                self.logger.warning(f" STORAGE LIMIT REACHED: {usage_gb:.2f} GB / {self.max_storage_gb} GB ({usage_pct:.1f}%)")
+                self.stop_all_processing_gracefully(f"Storage limit reached: {usage_gb:.2f} GB")
                 break
 
             self.logger.info(f"\\n{'='*80}")
             self.logger.info(f"PROCESSING PAGE {current_page} (BACKWARDS SCRAPE)")
-            self.logger.info(f"Remaining pages to process: {current_page} pages")
+            self.logger.info(f"Storage: {usage_gb:.2f} GB / {self.max_storage_gb} GB ({usage_pct:.1f}%)")
+            self.logger.info(f"Remaining pages: {current_page} pages")
             self.logger.info(f"{'='*80}")
 
             try:
-                # Check force stop before processing page
-                if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping before page processing")
+                # Check enhanced force stop before processing page
+                if self.enhanced_force_stop_check():
+                    self.logger.warning(" ENHANCED FORCE STOP - Stopping before page processing")
                     break
-                
-                # NEW: Use parallel processing for this page
+
+                # Process page with enhanced monitoring
                 page_processed = await self._process_single_page_parallel(current_page)
 
                 if page_processed:
@@ -585,30 +746,32 @@ class VideoScraper:
                 current_page -= 1
                 self.logger.info(f"Moving backwards: Next page will be {current_page if current_page >= 1 else 'COMPLETE'}")
 
-                # Wait between pages (with force stop checking)
+                # Wait between pages (with enhanced force stop checking)
                 if current_page >= 1:
-                    await self._wait_between_pages()
+                    await self._wait_between_pages_enhanced()
 
             except Exception as e:
-                if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP during page processing")
+                if self.enhanced_force_stop_check():
+                    self.logger.warning(" ENHANCED FORCE STOP during page processing")
                     break
-                    
+
                 self.logger.error(f"Error processing page {current_page}: {e}")
                 traceback.print_exc()
                 current_page -= 1
                 continue
 
         final_page = current_page + 1
-        
         if self.force_stop_requested:
             self.logger.info(f"BACKWARDS SCRAPE FORCE STOPPED")
             self.logger.info(f"Last completed page: {final_page}")
+            # Get final storage stats
+            _, usage_gb, usage_pct = self.check_storage_limits_from_progress(force_check=True)
+            self.logger.info(f"Final storage usage: {usage_gb:.2f} GB / {self.max_storage_gb} GB ({usage_pct:.1f}%)")
         else:
             self.logger.info(f"BACKWARDS SCRAPE COMPLETED")
             self.logger.info(f"Last page processed: {final_page}")
-            
-        self.logger.info(f"Total pages processed: {start_page - final_page + 1}")
+            self.logger.info(f"Total pages processed: {start_page - final_page + 1}")
+
 
     async def _process_single_page_parallel(self, page_num):
         """NEW: Process a single page using parallel video processing"""
@@ -625,7 +788,7 @@ class VideoScraper:
 
         # Check for force stop at the beginning
         if self.check_force_stop():
-            self.logger.warning("🛑 FORCE STOP REQUESTED - Skipping page processing")
+            self.logger.warning(" FORCE STOP REQUESTED - Skipping page processing")
             return False
 
         # Get video links
@@ -638,7 +801,7 @@ class VideoScraper:
 
         # Check for force stop after getting links
         if self.check_force_stop():
-            self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping after getting video links")
+            self.logger.warning(" FORCE STOP REQUESTED - Stopping after getting video links")
             return False
 
         # PHASE 1: Extract all video info in parallel (existing method)
@@ -647,7 +810,7 @@ class VideoScraper:
 
         # Check for force stop after info extraction
         if self.check_force_stop():
-            self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping after info extraction")
+            self.logger.warning(" FORCE STOP REQUESTED - Stopping after info extraction")
             return False
 
         # Create complete video info objects with full metadata
@@ -655,7 +818,7 @@ class VideoScraper:
         for i, (video_url, crawl4ai_result) in enumerate(zip(video_links, batch_results)):
             # Check force stop during info creation
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping during video info creation")
+                self.logger.warning(" FORCE STOP REQUESTED - Stopping during video info creation")
                 return False
                 
             video_info = await self.create_complete_video_info(video_url, crawl4ai_result)
@@ -680,7 +843,7 @@ class VideoScraper:
 
         # Final force stop check before video processing
         if self.check_force_stop():
-            self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping before video processing phase")
+            self.logger.warning(" FORCE STOP REQUESTED - Stopping before video processing phase")
             return False
 
         # PHASE 2: NEW - PARALLEL VIDEO PROCESSING (complete pipeline)
@@ -697,7 +860,7 @@ class VideoScraper:
         tasks = []
         for video_info in videos_to_process:
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping video task creation")
+                self.logger.warning(" FORCE STOP REQUESTED - Stopping video task creation")
                 break
                 
             # Pass force stop check to video processor
@@ -719,7 +882,7 @@ class VideoScraper:
             results = []
             for task, video_id in tasks:
                 if self.check_force_stop():
-                    self.logger.warning(f"🛑 FORCE STOP REQUESTED - Cancelling remaining video tasks")
+                    self.logger.warning(f" FORCE STOP REQUESTED - Cancelling remaining video tasks")
                     # Cancel remaining tasks
                     for remaining_task, _ in tasks[len(results):]:
                         remaining_task.cancel()
@@ -748,7 +911,7 @@ class VideoScraper:
         except Exception as e:
             self.logger.error(f"Error during parallel video processing: {e}")
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED during video processing")
+                self.logger.warning(" FORCE STOP REQUESTED during video processing")
             return False
 
         # PHASE 3: Final report
@@ -760,24 +923,31 @@ class VideoScraper:
         self.generate_final_report_parallel(page_num, video_links, stats)
         return True
 
+    # Update the process_video_with_stop_check method to include storage checking
     def _process_video_with_stop_check(self, video_info, max_retries, page_num):
-        """Process video with force stop checking"""
+        """Process video with enhanced force stop and storage checking"""
         try:
             # Check force stop before processing
-            if self.check_force_stop():
-                self.logger.warning(f"🛑 FORCE STOP - Skipping video {video_info['video_id']}")
+            if self.enhanced_force_stop_check():
+                self.logger.warning(f" FORCE STOP - Skipping video {video_info['video_id']}")
                 return False
-                
-            # Use existing video processor but with force stop awareness
+
+            # Check storage before processing this video
+            if not self.check_storage_before_download(expected_size_mb=50):  # Assume ~50MB average video
+                self.logger.warning(f" STORAGE LIMIT - Skipping video {video_info['video_id']}")
+                return False
+
+            # Use existing video processor but with enhanced force stop awareness
             return self.video_processor.process_video_parallel_safe(video_info, max_retries, page_num)
-            
+
         except Exception as e:
-            if self.check_force_stop():
-                self.logger.warning(f"🛑 FORCE STOP during video {video_info['video_id']} processing")
+            if self.enhanced_force_stop_check():
+                self.logger.warning(f" FORCE STOP during video {video_info['video_id']} processing")
                 return False
             else:
                 self.logger.error(f"Error processing video {video_info['video_id']}: {e}")
                 return False
+
 
     # Keep existing methods for backward compatibility and fallback
     async def create_complete_video_info(self, video_url, crawl4ai_result):
@@ -911,22 +1081,30 @@ class VideoScraper:
         except Exception as e:
             self.logger.error(f"Error ensuring complete video info: {e}")
 
-    async def _wait_between_pages(self):
-        """Wait between pages with force stop checking"""
+
+    async def _wait_between_pages_enhanced(self):
+        """Enhanced wait between pages with storage and force stop checking"""
         page_delay = self.config.get("general", {}).get("delay_between_pages", 5000) / 1000
         self.logger.info(f"Waiting {page_delay} seconds before next page...")
-        
-        # Wait in small increments so we can check force stop
+
+        # Wait in small increments so we can check force stop and storage
         wait_increment = 0.5  # Check every 0.5 seconds
         total_waited = 0
-        
+
         while total_waited < page_delay:
-            if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Interrupting page delay")
+            if self.enhanced_force_stop_check():
+                self.logger.warning(" ENHANCED FORCE STOP - Interrupting page delay")
                 break
-                
+
             await asyncio.sleep(min(wait_increment, page_delay - total_waited))
             total_waited += wait_increment
+
+            # Check storage every few seconds during wait
+            if total_waited % 2.0 < wait_increment:  # Every 2 seconds
+                limit_reached, usage_gb, usage_pct = self.check_storage_limits_from_progress()
+                if limit_reached:
+                    self.logger.warning(" STORAGE LIMIT reached during page delay")
+                    break
 
     def generate_final_report_parallel(self, page_num, video_links, stats):
         """Create summary of parallel scraping results"""
