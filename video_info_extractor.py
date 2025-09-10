@@ -14,6 +14,7 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
 from crawl4ai.extraction_strategy import JsonCssExtractionStrategy
 
 class VideoInfoExtractor:
+    
     def __init__(self, config, driver_manager, date_parser):
         self.config = config
         self.driver_manager = driver_manager
@@ -21,7 +22,7 @@ class VideoInfoExtractor:
         self.base_url = "https://rule34video.com"
         self.logger = logging.getLogger('Rule34Scraper')
 
-        # Enhanced Crawl4AI schemas
+        # Enhanced Crawl4AI schemas - keep listing schema the same
         self.listing_schema = {
             "name": "rule34video.com Listing Schema",
             "baseSelector": "#custom_list_videos_most_recent_videos_items > div",
@@ -34,23 +35,35 @@ class VideoInfoExtractor:
             ]
         }
 
-        # UPDATED: Better detail schema for views extraction
+        # UPDATED: Enhanced detail schema with proper title extraction and new fields based on your crawl4ai schema
         self.detail_schema = {
             "name": "rule34video.com Detail Schema",
-            "baseSelector": "div.fancybox-inner > div",
+            "baseSelector": "div.wrapper > div.main",  # Using your base selector
             "fields": [
+                # FIXED: Proper title extraction from detail page
+                {"name": "title", "selector": "h1, .title, .video-title", "type": "text"},
+                
+                # NEW: Description field
+                {"name": "description", "selector": "#tab_video_info > div.row > div.label", "type": "text"},
+                
+                # NEW: Categories as nested to get list of strings
+                {"name": "categories", "selector": "div.row > div.cols > div.col:nth-of-type(1)", "type": "nested"},
+                
+                # NEW: Artist field
+                {"name": "artist", "selector": "div.row > div.cols > div.col:nth-of-type(2)", "type": "text"},
+                
+                # UPDATED: Better uploaded_by selector from your schema
+                {"name": "uploaded_by", "selector": "div.row > div.cols > div.col:nth-of-type(3)", "type": "text"},
+                
+                # Existing fields
                 {"name": "info_details", "selector": "#tab_video_info > div.info.row", "type": "text"},
-                {"name": "uploaded_by", "selector": "a.item.btn_link", "type": "text"},
                 {"name": "tags", "selector": "div.wrap", "type": "text"},
                 {"name": "video_source", "selector": "video", "type": "attribute", "attribute": "src"},
                 {"name": "video_poster", "selector": "video", "type": "attribute", "attribute": "poster"},
-                {"name": "views", "selector": "span", "type": "text"}  # NEW: Extract views from spans
+                {"name": "views", "selector": "span", "type": "text"}
             ]
         }
 
-    @property
-    def driver(self):
-        return self.driver_manager.get_driver()
 
     async def extract_page_listings_crawl4ai(self, page_url):
         """Extract video listings from a page using Crawl4AI listing schema"""
@@ -189,64 +202,160 @@ class VideoInfoExtractor:
             return [{}] * len(video_urls)
 
     def create_complete_video_info_from_schemas(self, listing_data, detail_data):
-        """Create complete video info by combining listing and detail schema results"""
+        """Create complete video info by combining listing and detail schema results with new fields"""
         try:
             video_info = {
                 "video_id": listing_data.get("video_id", ""),
                 "url": listing_data.get("video_link", ""),
-                "title": listing_data.get("title", ""),
+                # FIXED: Prioritize detail page title over listing title
+                "title": detail_data.get("title", "") or listing_data.get("title", ""),
                 "duration": listing_data.get("duration", ""),
                 "views": "",
                 "uploader": "",
                 "upload_date": listing_data.get("upload_date", ""),
                 "tags": [],
                 "video_src": "",
-                "thumbnail_src": listing_data.get("thumbnail", "")
+                "thumbnail_src": listing_data.get("thumbnail", ""),
+                
+                # NEW FIELDS: Add description, author, and categories
+                "description": "",
+                "author": "",  # Will be populated from artist field
+                "categories": []  # Will be populated from categories field
             }
 
             # Merge detail data
             if detail_data:
-                # Extract uploader
-                if detail_data.get("uploaded_by"):
-                    video_info["uploader"] = detail_data["uploaded_by"].strip()
+                # FIXED: Use detail page title if available (prioritize over listing title)
+                if detail_data.get("title"):
+                    video_info["title"] = detail_data["title"].strip()
+                
+                # NEW: Extract description
+                if detail_data.get("description"):
+                    description = detail_data["description"].strip()
+                    video_info["description"] = description
 
-                # Extract tags
+                # NEW: Extract and clean artist (remove "Artist:" prefix)
+                if detail_data.get("artist"):
+                    artist = detail_data["artist"].strip()
+                    # Remove common prefixes
+                    artist = re.sub(r'^(Artist\s*:?\s*|By\s*:?\s*)', '', artist, flags=re.IGNORECASE).strip()
+                    if artist:
+                        video_info["author"] = artist
+
+                # NEW: Extract and process categories list
+                if detail_data.get("categories"):
+                    categories = self._extract_categories_list(detail_data["categories"])
+                    if categories:
+                        video_info["categories"] = categories
+
+                # UPDATED: Extract and clean uploader (remove "Uploaded by:" prefix)
+                if detail_data.get("uploaded_by"):
+                    uploader = detail_data["uploaded_by"].strip()
+                    # Remove common prefixes like "Uploaded by:", "Uploaded By:", etc.
+                    uploader = re.sub(r'^(Uploaded\s+by\s*:?\s*|By\s*:?\s*)', '', uploader, flags=re.IGNORECASE).strip()
+                    if uploader:
+                        video_info["uploader"] = uploader
+
+                # Extract tags (existing logic)
                 if detail_data.get("tags"):
                     tags = self.parse_tags_from_text(detail_data["tags"])
                     if tags:
                         video_info["tags"] = tags
 
-                # Extract video source
+                # Extract video source (existing logic)
                 if detail_data.get("video_source"):
                     video_src = detail_data["video_source"]
                     if not video_src.startswith('http'):
                         video_src = urljoin(self.base_url, video_src)
                     video_info["video_src"] = video_src
 
-                # Extract poster/thumbnail from video element
+                # Extract poster/thumbnail from video element (existing logic)
                 if detail_data.get("video_poster") and not video_info["thumbnail_src"]:
                     poster = detail_data["video_poster"]
                     if not poster.startswith('http'):
                         poster = urljoin(self.base_url, poster)
                     video_info["thumbnail_src"] = poster
 
-                # UPDATED: Extract views from Crawl4AI data
+                # Extract views from Crawl4AI data (existing logic)
                 if detail_data.get("views"):
                     views_num = self.extract_views_from_crawl4ai(detail_data["views"])
                     if views_num is not None:
                         video_info["views"] = str(views_num)
 
-                # Parse info details for additional metadata
+                # Parse info details for additional metadata (existing logic)
                 if detail_data.get("info_details"):
                     self.parse_info_details_text(video_info, detail_data["info_details"])
 
             # Set defaults for missing values
             self.set_default_values(video_info)
+
             return video_info
 
         except Exception as e:
             self.logger.error(f"Error creating complete video info: {e}")
             return self.create_video_info_from_listing_only(listing_data)
+
+    # NEW METHOD: Extract categories list from nested crawl4ai data
+    def _extract_categories_list(self, categories_data):
+        """Extract clean list of category strings from crawl4ai categories data"""
+        try:
+            categories = []
+            
+            if isinstance(categories_data, str):
+                # If it's a string, split by common delimiters
+                category_text = categories_data.strip()
+                # Split by common separators
+                potential_categories = re.split(r'[,\n\r\t•·|]+', category_text)
+                
+                for cat in potential_categories:
+                    cat = cat.strip()
+                    if cat and len(cat) > 1:
+                        # Remove any unwanted prefixes/suffixes
+                        cat = re.sub(r'^(Category\s*:?\s*|Cat\s*:?\s*)', '', cat, flags=re.IGNORECASE).strip()
+                        if cat:
+                            categories.append(cat)
+                            
+            elif isinstance(categories_data, list):
+                # If it's already a list, process each item
+                for item in categories_data:
+                    if isinstance(item, str):
+                        cat = item.strip()
+                        if cat and len(cat) > 1:
+                            cat = re.sub(r'^(Category\s*:?\s*|Cat\s*:?\s*)', '', cat, flags=re.IGNORECASE).strip()
+                            if cat:
+                                categories.append(cat)
+                    elif isinstance(item, dict):
+                        # If nested object, try to extract text
+                        for key, value in item.items():
+                            if isinstance(value, str) and value.strip():
+                                cat = value.strip()
+                                cat = re.sub(r'^(Category\s*:?\s*|Cat\s*:?\s*)', '', cat, flags=re.IGNORECASE).strip()
+                                if cat and len(cat) > 1:
+                                    categories.append(cat)
+            
+            elif isinstance(categories_data, dict):
+                # If it's a dict, extract all text values
+                for key, value in categories_data.items():
+                    if isinstance(value, str) and value.strip():
+                        cat = value.strip()
+                        cat = re.sub(r'^(Category\s*:?\s*|Cat\s*:?\s*)', '', cat, flags=re.IGNORECASE).strip()
+                        if cat and len(cat) > 1:
+                            categories.append(cat)
+
+            # Remove duplicates while preserving order
+            seen = set()
+            unique_categories = []
+            for cat in categories:
+                if cat.lower() not in seen:
+                    seen.add(cat.lower())
+                    unique_categories.append(cat)
+
+            self.logger.info(f"Extracted {len(unique_categories)} categories: {unique_categories[:5]}")
+            return unique_categories[:20]  # Limit to 20 categories
+            
+        except Exception as e:
+            self.logger.error(f"Error extracting categories list: {e}")
+            return []
 
     def extract_views_from_crawl4ai(self, views_data):
         """Extract views number from Crawl4AI span data, prioritizing bracket numbers"""
@@ -496,7 +605,7 @@ class VideoInfoExtractor:
             self.logger.error(f"Critical error in extract_item_info_data: {e}")
 
     def set_default_values(self, video_info):
-        """Ensure all required fields have valid defaults"""
+        """Ensure all required fields have valid defaults including new fields"""
         if not video_info.get("title"):
             video_info["title"] = f"Video_{video_info.get('video_id', '')}"
 
@@ -511,11 +620,20 @@ class VideoInfoExtractor:
         if not video_info.get("uploader"):
             video_info["uploader"] = "Unknown"
 
-        # CHANGE: Use integer timestamp for upload_date
+        # NEW: Default values for new fields
+        if not video_info.get("description"):
+            video_info["description"] = ""
+
+        if not video_info.get("author"):
+            video_info["author"] = video_info.get("uploader", "Unknown")
+
+        if not video_info.get("categories"):
+            video_info["categories"] = []
+
+        # Use integer timestamp for upload_date (existing logic)
         if not video_info.get("upload_date") or video_info["upload_date"] == "Unknown":
             video_info["upload_date"] = int(datetime.now().timestamp() * 1000)
         elif "upload_date_epoch" in video_info and video_info["upload_date_epoch"]:
-            # Convert epoch to upload_date if it exists
             video_info["upload_date"] = int(video_info["upload_date_epoch"])
 
         # Remove upload_date_epoch field if it exists
@@ -525,10 +643,11 @@ class VideoInfoExtractor:
         if not video_info.get("tags"):
             video_info["tags"] = ["untagged"]
 
-        # CHANGE: Remove crawl4ai data fields
+        # Remove crawl4ai data fields
         for key in ["crawl4ai_data", "crawl4ai_listing_data", "crawl4ai_detail_data"]:
             if key in video_info:
                 del video_info[key]
+
 
     # Keep all other existing methods unchanged for backward compatibility
     def extract_video_id(self, video_url):
@@ -631,7 +750,7 @@ class VideoInfoExtractor:
         return True
 
     def supplement_with_selenium(self, video_info, video_url):
-        """Use Selenium to fill in missing information"""
+        """Use Selenium to fill in missing information including new fields"""
         try:
             # Navigate to video page if needed
             if not self.driver_manager.navigate_to_page(video_url):
@@ -656,8 +775,129 @@ class VideoInfoExtractor:
             if not video_info.get("video_src"):
                 video_info["video_src"] = self.extract_video_source()
 
+            # NEW: Extract new fields with Selenium as fallback
+            if not video_info.get("description"):
+                video_info["description"] = self.extract_description_selenium()
+
+            if not video_info.get("author") or video_info.get("author") == "Unknown":
+                video_info["author"] = self.extract_author_selenium()
+
+            if not video_info.get("categories") or len(video_info.get("categories", [])) == 0:
+                video_info["categories"] = self.extract_categories_selenium()
+
         except Exception as e:
             self.logger.error(f"Error in Selenium supplementation: {e}")
+
+    # NEW SELENIUM METHODS: Add these methods for fallback extraction of new fields
+
+    def extract_description_selenium(self):
+        """Extract description using Selenium as fallback"""
+        try:
+            # Try multiple selectors for description
+            description_selectors = [
+                "#tab_video_info > div.row > div.label",
+                ".description",
+                ".video-description", 
+                "[class*='description']",
+                "#tab_video_info .label"
+            ]
+            
+            for selector in description_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        text = element.text.strip()
+                        if text and len(text) > 10:  # Reasonable description length
+                            self.logger.info(f"Description extracted via Selenium: {text[:50]}...")
+                            return text
+                except:
+                    continue
+                    
+            return ""
+            
+        except Exception as e:
+            self.logger.warning(f"Error extracting description with Selenium: {e}")
+            return ""
+
+    def extract_author_selenium(self):
+        """Extract author/artist using Selenium as fallback"""
+        try:
+            # Try multiple selectors for author/artist
+            author_selectors = [
+                "div.row > div.cols > div.col:nth-of-type(2)",
+                ".artist",
+                ".author",
+                "[class*='artist']",
+                "[class*='author']"
+            ]
+            
+            for selector in author_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        text = element.text.strip()
+                        # Clean up common prefixes
+                        text = re.sub(r'^(Artist\s*:?\s*|Author\s*:?\s*|By\s*:?\s*)', '', text, flags=re.IGNORECASE).strip()
+                        if text and text.lower() not in ['unknown', 'n/a', 'none']:
+                            self.logger.info(f"Author extracted via Selenium: {text}")
+                            return text
+                except:
+                    continue
+                    
+            return "Unknown"
+            
+        except Exception as e:
+            self.logger.warning(f"Error extracting author with Selenium: {e}")
+            return "Unknown"
+
+    def extract_categories_selenium(self):
+        """Extract categories using Selenium as fallback"""
+        try:
+            categories = []
+            
+            # Try multiple selectors for categories
+            category_selectors = [
+                "div.row > div.cols > div.col:nth-of-type(1)",
+                ".categories",
+                ".category",
+                "[class*='category']",
+                "[class*='genre']"
+            ]
+            
+            for selector in category_selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        text = element.text.strip()
+                        if text:
+                            # Split by common delimiters
+                            cats = re.split(r'[,\n\r\t•·|]+', text)
+                            for cat in cats:
+                                cat = cat.strip()
+                                # Clean up common prefixes
+                                cat = re.sub(r'^(Category\s*:?\s*|Genre\s*:?\s*)', '', cat, flags=re.IGNORECASE).strip()
+                                if cat and len(cat) > 1 and cat.lower() not in ['none', 'n/a']:
+                                    categories.append(cat)
+                                    
+                    if categories:
+                        break
+                except:
+                    continue
+            
+            # Remove duplicates
+            unique_categories = []
+            seen = set()
+            for cat in categories:
+                if cat.lower() not in seen:
+                    seen.add(cat.lower())
+                    unique_categories.append(cat)
+            
+            self.logger.info(f"Categories extracted via Selenium: {unique_categories[:5]}")
+            return unique_categories[:20]  # Limit to 20
+            
+        except Exception as e:
+            self.logger.warning(f"Error extracting categories with Selenium: {e}")
+            return []
 
     def extract_uploader(self):
         """Get uploader name from page elements"""
@@ -896,15 +1136,18 @@ class VideoInfoExtractor:
             return None
 
     def log_extracted_info(self, video_info):
-        """Log summary of extracted video information"""
+        """Log summary of extracted video information including new fields"""
         video_id = video_info["video_id"]
         self.logger.info(f"Extracted info for {video_id}:")
         self.logger.info(f" Title: '{video_info['title'][:50]}...'")
         self.logger.info(f" Duration: {video_info['duration']}")
         self.logger.info(f" Views: {video_info['views']}")
         self.logger.info(f" Uploader: {video_info['uploader']}")
+        self.logger.info(f" Author: {video_info.get('author', 'N/A')}")  # NEW
         self.logger.info(f" Upload date: {video_info['upload_date']}")
         self.logger.info(f" Tags: {len(video_info['tags'])} tags")
+        self.logger.info(f" Categories: {len(video_info.get('categories', []))} categories")  # NEW
+        self.logger.info(f" Description: {'Yes' if video_info.get('description') else 'No'}")  # NEW
         self.logger.info(f" Video source: {'Found' if video_info['video_src'] else 'None'}")
         self.logger.info(f" Thumbnail: {'Found' if video_info['thumbnail_src'] else 'None'}")
 
