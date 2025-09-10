@@ -121,16 +121,16 @@ class WebParserGUI:
         control_frame.grid(row=3, column=0, columnspan=2, pady=(10, 0))
 
         # Start/Stop buttons
-        self.start_button = ttk.Button(control_frame, text="▶ Start Scraper", 
+        self.start_button = ttk.Button(control_frame, text=" Start Scraper", 
                                       command=self.start_scraper, style='Success.TButton')
         self.start_button.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.stop_button = ttk.Button(control_frame, text="⏹ Stop Scraper", 
+        self.stop_button = ttk.Button(control_frame, text=" Stop Scraper", 
                                      command=self.stop_scraper, state='disabled')
         self.stop_button.pack(side=tk.LEFT, padx=(0, 10))
 
         # Clear logs button
-        self.clear_button = ttk.Button(control_frame, text="🗑 Clear Logs", 
+        self.clear_button = ttk.Button(control_frame, text=" Clear Logs", 
                                       command=self.clear_logs)
         self.clear_button.pack(side=tk.LEFT, padx=(0, 10))
 

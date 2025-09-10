@@ -25,13 +25,13 @@ class VideoInfoExtractor:
         self.listing_schema = {
             "name": "rule34video.com Listing Schema",
             "baseSelector": "#custom_list_videos_most_recent_videos_items > div",
-            "fields": [
-                {"name": "upload_date", "selector": "a.th.js-open-popup > div.thumb_info > div.added:nth-of-type(1)", "type": "text"},
-                {"name": "duration", "selector": "a.th.js-open-popup > div.img.wrap_image > div.time:nth-of-type(3)", "type": "text"},
-                {"name": "title", "selector": "a.th.js-open-popup > div.thumb_title:nth-of-type(2)", "type": "text"},
-                {"name": "video_link", "selector": "a.th.js-open-popup", "type": "attribute", "attribute": "href"},
-                {"name": "thumbnail", "selector": "a.th.js-open-popup > div.img.wrap_image > img", "type": "attribute", "attribute": "data-src"}
-            ]
+            	"fields": [
+				{"name": "upload_date", "selector": "a.th.js-open-popup > div.thumb_info > div.added:nth-of-type(1)", "type": "text"},
+				{"name": "duration", "selector": "a.th.js-open-popup > div.img.wrap_image > div.time:nth-of-type(3)", "type": "text"},
+				{"name": "title", "selector": "a.th.js-open-popup > div.thumb_title:nth-of-type(2)", "type": "text"},
+				{"name": "video_link", "selector": "a.th.js-open-popup", "type": "attribute", "attribute": "href"},
+				{"name": "thumbnail", "selector": "a.th.js-open-popup > div.img.wrap_image > img", "type": "attribute", "attribute": "data-src"}
+			]
         }
 
         # UPDATED: Better detail schema for views extraction
@@ -44,7 +44,10 @@ class VideoInfoExtractor:
                 {"name": "tags", "selector": "div.wrap", "type": "text"},
                 {"name": "video_source", "selector": "video", "type": "attribute", "attribute": "src"},
                 {"name": "video_poster", "selector": "video", "type": "attribute", "attribute": "poster"},
-                {"name": "views", "selector": "span", "type": "text"}  # NEW: Extract views from spans
+                {"name": "views", "selector": "span", "type": "text"},
+				{"name": "description", "selector": "#tab_video_info div.description, #tab_video_info div.desc, #tab_video_info p", "type": "text"},
+				{"name": "categories", "selector": "#tab_video_info div[2]/div/div[1]//a[contains(@class, 'item btn_link')]", "type": "text"},
+                {"name": "artists", "selector": "#tab_video_info div[2]/div/div[2]//a[contains(@class, 'item btn_link')]", "type": "text"}
             ]
         }
 
@@ -198,7 +201,11 @@ class VideoInfoExtractor:
                 "duration": listing_data.get("duration", ""),
                 "views": "",
                 "uploader": "",
+                "uploaded_by": "",  # NEW FIELD
                 "upload_date": listing_data.get("upload_date", ""),
+                "description": "",  # NEW FIELD
+                "categories": [],   # NEW FIELD
+                "artists": [],      # NEW FIELD
                 "tags": [],
                 "video_src": "",
                 "thumbnail_src": listing_data.get("thumbnail", "")
@@ -209,6 +216,7 @@ class VideoInfoExtractor:
                 # Extract uploader
                 if detail_data.get("uploaded_by"):
                     video_info["uploader"] = detail_data["uploaded_by"].strip()
+                    video_info["uploaded_by"] = detail_data["uploaded_by"].strip()
 
                 # Extract tags
                 if detail_data.get("tags"):
@@ -247,6 +255,7 @@ class VideoInfoExtractor:
         except Exception as e:
             self.logger.error(f"Error creating complete video info: {e}")
             return self.create_video_info_from_listing_only(listing_data)
+
 
     def extract_views_from_crawl4ai(self, views_data):
         """Extract views number from Crawl4AI span data, prioritizing bracket numbers"""
@@ -303,7 +312,7 @@ class VideoInfoExtractor:
             return 0
 
     def create_video_info_from_listing_only(self, listing_data):
-        """Create video info structure from listing data only (fallback)"""
+        """Create video info structure from listing data only (fallback) - UPDATED"""
         try:
             video_info = {
                 "video_id": listing_data.get("video_id", ""),
@@ -312,7 +321,11 @@ class VideoInfoExtractor:
                 "duration": listing_data.get("duration", ""),
                 "views": "0",
                 "uploader": "Unknown",
+                "uploaded_by": "Unknown",  # NEW FIELD
                 "upload_date": listing_data.get("upload_date", ""),
+                "description": "No description available",  # NEW FIELD
+                "categories": ["uncategorized"],  # NEW FIELD
+                "artists": ["unknown_artist"],  # NEW FIELD
                 "tags": ["untagged"],
                 "video_src": "",
                 "thumbnail_src": listing_data.get("thumbnail", "")
@@ -324,7 +337,7 @@ class VideoInfoExtractor:
         except Exception as e:
             self.logger.error(f"Error creating video info from listing: {e}")
             return None
-
+        
     def extract_video_info(self, video_url):
         """Main orchestrator method - enhanced with dual schema integration"""
         try:
@@ -418,78 +431,79 @@ class VideoInfoExtractor:
         return int(digits) if digits else 0
 
     def extract_item_info_data(self, video_info):
-        """Extract duration, views, and upload date from info row elements"""
+        """Extract duration, views, and upload date from info row elements - FIXED"""
         try:
-            info_row_elements = self.driver.find_elements(By.XPATH, "//div[contains(@class, 'info row')]")
-            self.logger.info(f"Found {len(info_row_elements)} info row elements")
-
+            # Look for the specific info row that contains the basic video info
+            info_row_elements = self.driver.find_elements(By.XPATH, "//div[@id='tab_video_info']/div[@class='info row']//div[@class='item_info']")
+            self.logger.info(f"Found {len(info_row_elements)} item_info elements")
+            
             if not info_row_elements:
-                self.logger.warning("No info row elements found - validation failed at element discovery")
+                self.logger.warning("No item_info elements found - validation failed at element discovery")
                 return
 
-            for i, row in enumerate(info_row_elements):
+            for i, item in enumerate(info_row_elements):
                 try:
-                    row_text = row.get_attribute("textContent") or row.text.strip()
-                    self.logger.debug(f"Processing row {i+1}: '{row_text}'")
-
-                    if not row_text:
-                        self.logger.warning(f"Row {i+1} validation failed: empty text content")
+                    item_text = item.get_attribute("textContent") or item.text.strip()
+                    self.logger.debug(f"Processing item {i+1}: '{item_text}'")
+                    
+                    if not item_text:
+                        self.logger.warning(f"Item {i+1} validation failed: empty text content")
                         continue
 
-                    # CHANGE: Check for views pattern in any row text - look for patterns like "2.4K (24875)"
-                    if not video_info.get("views") or video_info["views"] == "0":
-                        views_num = self.extract_views_from_crawl4ai(row_text)
-                        if views_num and views_num > 0:
-                            video_info["views"] = str(views_num)
+                    # Check which type of icon this item contains (FIXED: using correct class names)
+                    has_calendar = len(item.find_elements(By.XPATH, ".//svg[contains(@class,'custom-calendar')]")) > 0
+                    has_eye = len(item.find_elements(By.XPATH, ".//svg[contains(@class,'custom-eye')]")) > 0  
+                    has_time = len(item.find_elements(By.XPATH, ".//svg[contains(@class,'custom-time')]")) > 0
 
-                    # Check which type of icon this row contains
-                    has_calendar = len(row.find_elements(By.XPATH, ".//svg[contains(@class,'custom-calender')]")) > 0
-                    has_eye = len(row.find_elements(By.XPATH, ".//svg[contains(@class,'custom-eye')]")) > 0
-                    has_time = len(row.find_elements(By.XPATH, ".//svg[contains(@class,'custom-time')]")) > 0
-
-                    self.logger.debug(f"Row {i+1} icons - Calendar: {has_calendar}, Eye: {has_eye}, Time: {has_time}")
+                    self.logger.debug(f"Item {i+1} icons - Calendar: {has_calendar}, Eye: {has_eye}, Time: {has_time}")
 
                     # Validate that exactly one icon type is found
                     icon_count = sum([has_calendar, has_eye, has_time])
                     if icon_count == 0:
-                        self.logger.warning(f"Row {i+1} validation failed: no recognized icon found")
+                        self.logger.warning(f"Item {i+1} validation failed: no recognized icon found")
                         continue
                     elif icon_count > 1:
-                        self.logger.warning(f"Row {i+1} validation failed: multiple icons found")
+                        self.logger.warning(f"Item {i+1} validation failed: multiple icons found")
                         continue
+
+                    # Extract the span text for each type
+                    try:
+                        span_element = item.find_element(By.XPATH, ".//span")
+                        span_text = span_element.text.strip()
+                    except NoSuchElementException:
+                        span_text = item_text
 
                     # Process based on icon type
                     if has_calendar:
-                        if not row_text:
-                            continue
-                        video_info["upload_date"] = row_text.strip()
-                        epoch = self.date_parser.parse_upload_date_to_epoch(row_text.strip())
-                        if epoch:
-                            # CHANGE: Store as int upload_date instead of upload_date_epoch
-                            video_info["upload_date"] = int(epoch)
-                        self.logger.info(f"Upload date extracted: '{video_info['upload_date']}'")
+                        if span_text:
+                            video_info["upload_date"] = span_text
+                            epoch = self.date_parser.parse_upload_date_to_epoch(span_text)
+                            if epoch:
+                                video_info["upload_date"] = int(epoch)
+                            self.logger.info(f"Upload date extracted: '{video_info['upload_date']}'")
 
                     elif has_eye:
-                        if not row_text:
-                            continue
-                        views_num = self.extract_views_from_crawl4ai(row_text)
-                        if views_num is not None:
-                            video_info["views"] = str(views_num)
+                        if span_text:
+                            views_num = self.extract_views_from_crawl4ai(span_text)
+                            if views_num is not None:
+                                video_info["views"] = str(views_num)
+                                self.logger.info(f"Views extracted: {video_info['views']}")
 
                     elif has_time:
-                        if not row_text:
-                            continue
-                        time_match = re.search(r'(\d{1,2}:\d{2}(?::\d{2})?)', row_text)
-                        if time_match:
-                            video_info["duration"] = time_match.group(1)
-                            self.logger.info(f"Duration extracted: '{video_info['duration']}'")
-                        else:
-                            if re.match(r'^\d{1,2}:\d{2}(?::\d{2})?$', row_text.strip()):
-                                video_info["duration"] = row_text.strip()
-                                self.logger.info(f"Duration extracted (fallback): '{video_info['duration']}'")
+                        if span_text:
+                            # Look for time pattern in the span text
+                            time_match = re.search(r'(\d{1,2}:\d{2}(?::\d{2})?)', span_text)
+                            if time_match:
+                                video_info["duration"] = time_match.group(1)
+                                self.logger.info(f"Duration extracted: '{video_info['duration']}'")
+                            else:
+                                # If the entire span text is a time format
+                                if re.match(r'^\d{1,2}:\d{2}(?::\d{2})?$', span_text):
+                                    video_info["duration"] = span_text
+                                    self.logger.info(f"Duration extracted (full match): '{video_info['duration']}'")
 
                 except Exception as e:
-                    self.logger.error(f"Error processing row {i+1}: {e}")
+                    self.logger.error(f"Error processing item {i+1}: {e}")
                     continue
 
         except Exception as e:
@@ -510,6 +524,22 @@ class VideoInfoExtractor:
 
         if not video_info.get("uploader"):
             video_info["uploader"] = "Unknown"
+
+        # NEW: Set default for uploaded_by
+        if not video_info.get("uploaded_by"):
+            video_info["uploaded_by"] = video_info.get("uploader", "Unknown")
+
+        # NEW: Set default for description
+        if not video_info.get("description"):
+            video_info["description"] = "No description available"
+
+        # NEW: Set default for categories
+        if not video_info.get("categories") or (isinstance(video_info.get("categories"), list) and not video_info["categories"]):
+            video_info["categories"] = ["uncategorized"]
+
+        # NEW: Set default for artists
+        if not video_info.get("artists") or (isinstance(video_info.get("artists"), list) and not video_info["artists"]):
+            video_info["artists"] = ["unknown_artist"]
 
         # CHANGE: Use integer timestamp for upload_date
         if not video_info.get("upload_date") or video_info["upload_date"] == "Unknown":
@@ -620,44 +650,270 @@ class VideoInfoExtractor:
             self.logger.error(f"Error parsing info details: {e}")
 
     def is_video_info_complete(self, video_info):
-        """Check if video info has all essential fields populated"""
-        essential_fields = ["title", "uploader"]
+        """Check if video info has all essential fields populated - UPDATED"""
+        essential_fields = ["title", "uploader"]  # Reduced requirements
+        
         for field in essential_fields:
             if not video_info.get(field):
                 return False
-        # Check if tags is empty list
-        if isinstance(video_info.get("tags"), list) and not video_info["tags"]:
-            return False
+
+        # Only check that arrays exist, not that they're populated (since defaults are acceptable)
+        for array_field in ["categories", "artists", "tags"]:
+            if not isinstance(video_info.get(array_field), list):
+                return False
+
         return True
 
+
+    def extract_uploaded_by(self):
+        """Extract the uploaded by information using the provided XPath"""
+        try:
+            # Using the XPath from uploaded_by.txt: //*[@id="tab_video_info"]/div[3]/div/div[3]
+            uploaded_by_element = self.driver.find_element(By.XPATH, '//*[@id="tab_video_info"]/div[3]/div/div[3]//a[contains(@class, "item btn_link")]')
+            uploaded_by = uploaded_by_element.text.strip()
+            self.logger.info(f"Uploaded by extracted: {uploaded_by}")
+            return uploaded_by
+        except NoSuchElementException:
+            # Fallback to existing method
+            try:
+                return self.extract_uploader()
+            except:
+                self.logger.warning("Could not extract uploaded_by, using default")
+                return "Unknown"
+        except Exception as e:
+            self.logger.error(f"Error extracting uploaded_by: {e}")
+            return "Unknown"
+
+    def extract_categories(self):
+        """Extract categories using the correct structure from the HTML"""
+        try:
+            categories = []
+            # Look for the col div that contains "Categories" label, then get all the spans
+            category_col_xpath = "//div[@class='col'][.//div[@class='label' and text()='Categories']]"
+            category_col = self.driver.find_element(By.XPATH, category_col_xpath)
+            
+            # Get all the anchor elements within this column
+            category_links = category_col.find_elements(By.XPATH, ".//a[contains(@class, 'item btn_link')]")
+            
+            for link in category_links:
+                try:
+                    # Extract text from the span element
+                    category_span = link.find_element(By.XPATH, ".//span")
+                    category_text = category_span.text.strip()
+                    if category_text:
+                        categories.append(category_text)
+                        self.logger.debug(f"Found category: {category_text}")
+                except NoSuchElementException:
+                    # Fallback to direct text extraction
+                    category_text = link.text.strip()
+                    if category_text:
+                        categories.append(category_text)
+                        self.logger.debug(f"Found category (fallback): {category_text}")
+
+            result_categories = categories if categories else ["uncategorized"]
+            self.logger.info(f"Categories extracted: {len(result_categories)} categories - {result_categories}")
+            return result_categories
+
+        except NoSuchElementException:
+            self.logger.warning("Could not find categories column, using default")
+            return ["uncategorized"]
+        except Exception as e:
+            self.logger.error(f"Error extracting categories: {e}")
+            return ["uncategorized"]
+
+    def extract_artists(self):
+        """Extract artists using the correct structure from the HTML"""
+        try:
+            artists = []
+            # Look for the col div that contains "Artist" label, then get all the spans with class "name"
+            artist_col_xpath = "//div[@class='col'][.//div[@class='label' and text()='Artist']]"
+            artist_col = self.driver.find_element(By.XPATH, artist_col_xpath)
+            
+            # Get all the anchor elements within this column
+            artist_links = artist_col.find_elements(By.XPATH, ".//a[contains(@class, 'item btn_link')]")
+            
+            for link in artist_links:
+                try:
+                    # Extract text from span with class "name"
+                    artist_span = link.find_element(By.XPATH, ".//span[@class='name']")
+                    artist_text = artist_span.text.strip()
+                    if artist_text:
+                        artists.append(artist_text)
+                        self.logger.debug(f"Found artist: {artist_text}")
+                except NoSuchElementException:
+                    # Fallback: try any span
+                    try:
+                        artist_span = link.find_element(By.XPATH, ".//span")
+                        artist_text = artist_span.text.strip()
+                        if artist_text:
+                            artists.append(artist_text)
+                            self.logger.debug(f"Found artist (span fallback): {artist_text}")
+                    except NoSuchElementException:
+                        # Final fallback to direct text extraction
+                        artist_text = link.text.strip()
+                        if artist_text:
+                            artists.append(artist_text)
+                            self.logger.debug(f"Found artist (text fallback): {artist_text}")
+
+            result_artists = artists if artists else ["unknown_artist"]
+            self.logger.info(f"Artists extracted: {len(result_artists)} artists - {result_artists}")
+            return result_artists
+
+        except NoSuchElementException:
+            self.logger.warning("Could not find artists column, using default")
+            return ["unknown_artist"]
+        except Exception as e:
+            self.logger.error(f"Error extracting artists: {e}")
+            return ["unknown_artist"]
+
+    def extract_uploaded_by(self):
+        """Extract uploaded by using the correct structure from the HTML"""
+        try:
+            # Look for the col div that contains "Uploaded by" label, then get the anchor text
+            uploaded_by_col_xpath = "//div[@class='col'][.//div[@class='label' and text()='Uploaded by']]"
+            uploaded_by_col = self.driver.find_element(By.XPATH, uploaded_by_col_xpath)
+            
+            # Get the anchor element within this column
+            uploaded_by_link = uploaded_by_col.find_element(By.XPATH, ".//a[contains(@class, 'item btn_link')]")
+            
+            # Extract the text content (it might be direct text, not in a span)
+            uploaded_by = uploaded_by_link.text.strip()
+            if uploaded_by:
+                self.logger.info(f"Uploaded by extracted: {uploaded_by}")
+                return uploaded_by
+            else:
+                # Fallback to existing method
+                return self.extract_uploader()
+
+        except NoSuchElementException:
+            self.logger.warning("Could not find uploaded by column, trying fallback method")
+            # Fallback to existing method
+            try:
+                return self.extract_uploader()
+            except:
+                self.logger.warning("Could not extract uploaded_by, using default")
+                return "Unknown"
+        except Exception as e:
+            self.logger.error(f"Error extracting uploaded_by: {e}")
+            return "Unknown"
+
+    def extract_description(self):
+        """Extract video description - looking in the tab_video_info area"""
+        try:
+            # Since there's no description in the provided HTML structure, 
+            # let's look for any potential description areas
+            description_selectors = [
+                "//div[@id='tab_video_info']//div[contains(@class, 'description')]",
+                "//div[@id='tab_video_info']//div[contains(@class, 'desc')]",
+                "//div[@id='tab_video_info']//div[contains(@class, 'content')]",
+                "//div[@id='tab_video_info']//p[string-length(text()) > 20]",
+                "//div[@class='row row_spacer']//div[@class='wrap']//div[not(@class='label') and string-length(text()) > 50]"
+            ]
+            
+            description = ""
+            for selector in description_selectors:
+                try:
+                    description_elements = self.driver.find_elements(By.XPATH, selector)
+                    for desc_elem in description_elements:
+                        text = desc_elem.text.strip()
+                        # Skip elements that contain navigation or known non-description content
+                        if (text and len(text) > 20 and 
+                            not any(skip_word in text.lower() for skip_word in 
+                                    ['download', 'suggest', 'tags', 'categories', 'uploaded', 'views', 'duration'])):
+                            description = text
+                            break
+                    if description:
+                        break
+                except NoSuchElementException:
+                    continue
+
+            # If still no description, look for any substantial text in the video info area
+            if not description:
+                try:
+                    # Look for any div with substantial text content in the video info area
+                    text_divs = self.driver.find_elements(By.XPATH, 
+                        "//div[@id='tab_video_info']//div[string-length(normalize-space(text())) > 30]")
+                    
+                    for div in text_divs:
+                        text = div.text.strip()
+                        # Filter out known UI elements
+                        if (len(text) > 30 and 
+                            not any(skip in text.lower() for skip in 
+                                    ['uploaded', 'views', 'duration', 'tags', 'categories', 'download', 
+                                    'suggest', 'mp4', 'ago', 'submit'])):
+                            description = text
+                            break
+                except:
+                    pass
+
+            result = description if description else "No description available"
+            self.logger.info(f"Description extracted: {result[:100]}..." if len(result) > 100 else f"Description extracted: {result}")
+            return result
+
+        except Exception as e:
+            self.logger.error(f"Error extracting description: {e}")
+            return "No description available"
+          
     def supplement_with_selenium(self, video_info, video_url):
-        """Use Selenium to fill in missing information"""
+        """Use Selenium to fill in missing information - UPDATED with better debugging"""
         try:
             # Navigate to video page if needed
             if not self.driver_manager.navigate_to_page(video_url):
                 return
 
+            self.logger.info(f"Starting Selenium supplementation for video {video_info.get('video_id', 'unknown')}")
+
             # Extract missing fields using existing Selenium methods
             if not video_info.get("title"):
+                self.logger.debug("Extracting title...")
                 video_info["title"] = self.extract_title()
 
             if not video_info.get("duration") or not video_info.get("views") or not video_info.get("upload_date"):
+                self.logger.debug("Extracting item info data...")
                 self.extract_item_info_data(video_info)
 
             if not video_info.get("uploader"):
+                self.logger.debug("Extracting uploader...")
                 video_info["uploader"] = self.extract_uploader()
 
-            if not video_info.get("tags") or (isinstance(video_info.get("tags"), list) and not video_info["tags"]):
+            # NEW: Extract uploaded_by (can be same as uploader but using new XPath)
+            if not video_info.get("uploaded_by") or video_info["uploaded_by"] == "Unknown":
+                self.logger.debug("Extracting uploaded_by...")
+                video_info["uploaded_by"] = self.extract_uploaded_by()
+
+            # NEW: Extract description
+            if not video_info.get("description") or video_info["description"] == "No description available":
+                self.logger.debug("Extracting description...")
+                video_info["description"] = self.extract_description()
+
+            # NEW: Extract categories
+            if not video_info.get("categories") or video_info["categories"] == ["uncategorized"]:
+                self.logger.debug("Extracting categories...")
+                video_info["categories"] = self.extract_categories()
+
+            # NEW: Extract artists
+            if not video_info.get("artists") or video_info["artists"] == ["unknown_artist"]:
+                self.logger.debug("Extracting artists...")
+                video_info["artists"] = self.extract_artists()
+
+            if not video_info.get("tags") or video_info["tags"] == ["untagged"]:
+                self.logger.debug("Extracting tags...")
                 video_info["tags"] = self.extract_tags()
 
             if not video_info.get("thumbnail_src"):
+                self.logger.debug("Extracting thumbnail...")
                 video_info["thumbnail_src"] = self.extract_thumbnail_url()
 
             if not video_info.get("video_src"):
+                self.logger.debug("Extracting video source...")
                 video_info["video_src"] = self.extract_video_source()
+
+            self.logger.info(f"Completed Selenium supplementation for video {video_info.get('video_id', 'unknown')}")
 
         except Exception as e:
             self.logger.error(f"Error in Selenium supplementation: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
 
     def extract_uploader(self):
         """Get uploader name from page elements"""
@@ -903,7 +1159,11 @@ class VideoInfoExtractor:
         self.logger.info(f" Duration: {video_info['duration']}")
         self.logger.info(f" Views: {video_info['views']}")
         self.logger.info(f" Uploader: {video_info['uploader']}")
+        self.logger.info(f" Uploaded by: {video_info['uploaded_by']}")  # NEW
         self.logger.info(f" Upload date: {video_info['upload_date']}")
+        self.logger.info(f" Description: {video_info['description'][:50]}...")  # NEW
+        self.logger.info(f" Categories: {len(video_info['categories'])} categories - {video_info['categories']}")  # NEW
+        self.logger.info(f" Artists: {len(video_info['artists'])} artists - {video_info['artists']}")  # NEW
         self.logger.info(f" Tags: {len(video_info['tags'])} tags")
         self.logger.info(f" Video source: {'Found' if video_info['video_src'] else 'None'}")
         self.logger.info(f" Thumbnail: {'Found' if video_info['thumbnail_src'] else 'None'}")
@@ -928,8 +1188,8 @@ class VideoInfoExtractor:
 
     def merge_crawl4ai_data(self, video_info, crawl4ai_result):
         """
-        ADDED METHOD: Merge Crawl4AI extraction results into video_info structure
-        This method should be added to your existing VideoInfoExtractor class
+        UPDATED METHOD: Merge Crawl4AI extraction results into video_info structure
+        Now includes the new fields
         """
         try:
             if not crawl4ai_result:
@@ -947,6 +1207,7 @@ class VideoInfoExtractor:
                 # Extract uploader
                 if detail_data.get("uploaded_by") and not video_info.get("uploader"):
                     video_info["uploader"] = detail_data["uploaded_by"].strip()
+                    video_info["uploaded_by"] = detail_data["uploaded_by"].strip()  # NEW
 
                 # Extract tags
                 if detail_data.get("tags") and not video_info.get("tags"):

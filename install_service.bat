@@ -30,7 +30,7 @@ echo Current directory: %CURRENT_DIR%
 REM Check if main_scraper.py exists
 if not exist "%CURRENT_DIR%main_scraper.py" (
     echo.
-    echo ❌ ERROR: main_scraper.py not found in current directory!
+    echo  ERROR: main_scraper.py not found in current directory!
     echo Please make sure this bat file is in the same folder as main_scraper.py
     echo.
     echo Current directory: %CURRENT_DIR%
@@ -43,10 +43,10 @@ if not exist "%CURRENT_DIR%main_scraper.py" (
 
 REM Check if all required files exist
 echo Checking required files...
-if exist "%CURRENT_DIR%main_scraper.py" echo ✅ main_scraper.py found
-if exist "%CURRENT_DIR%scraper_service.py" echo ✅ scraper_service.py found
-if exist "%CURRENT_DIR%config_manager.py" echo ✅ config_manager.py found
-if exist "%CURRENT_DIR%progress_tracker.py" echo ✅ progress_tracker.py found
+if exist "%CURRENT_DIR%main_scraper.py" echo  main_scraper.py found
+if exist "%CURRENT_DIR%scraper_service.py" echo  scraper_service.py found
+if exist "%CURRENT_DIR%config_manager.py" echo  config_manager.py found
+if exist "%CURRENT_DIR%progress_tracker.py" echo  progress_tracker.py found
 
 echo.
 echo Installing required Python packages...
@@ -64,7 +64,7 @@ python "%CURRENT_DIR%scraper_service.py" install
 
 if %errorLevel% neq 0 (
     echo.
-    echo ❌ SERVICE INSTALLATION FAILED!
+    echo  SERVICE INSTALLATION FAILED!
     echo.
     echo Troubleshooting:
     echo 1. Make sure you're running as Administrator
@@ -83,7 +83,7 @@ python "%CURRENT_DIR%scraper_service.py" start
 if %errorLevel% equ 0 (
     echo.
     echo ================================================
-    echo   ✅ SERVICE INSTALLATION SUCCESSFUL!
+    echo    SERVICE INSTALLATION SUCCESSFUL!
     echo ================================================
     echo.
     echo The Video Scraper is now running as a Windows Service!
@@ -91,7 +91,7 @@ if %errorLevel% equ 0 (
     echo.
 ) else (
     echo.
-    echo ⚠️ Service installed but failed to start.
+    echo ️ Service installed but failed to start.
     echo Check the log file for details: scraper_service.log
     echo.
 )

@@ -23,7 +23,7 @@ class WebDriverManager:
         chrome_options.add_argument("--disable-web-security")
         chrome_options.add_argument("--allow-running-insecure-content")
 
-        # 🔧 Fix WebGL fallback warning
+        #  Fix WebGL fallback warning
         chrome_options.add_argument("--disable-software-rasterizer")
         chrome_options.add_argument("--disable-webgl")
         chrome_options.add_argument("--disable-webgl2")

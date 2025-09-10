@@ -208,7 +208,7 @@ class VideoScraper:
                 
         # Check internal force stop flag
         if hasattr(self, 'force_stop_requested') and self.force_stop_requested:
-            self.logger.warning("🛑 FORCE STOP DETECTED - Aborting current operation")
+            self.logger.warning(" FORCE STOP DETECTED - Aborting current operation")
             return True
             
         return False
@@ -409,7 +409,7 @@ class VideoScraper:
         while current_page >= 1:
             # Check for force stop before each page
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping backwards scrape")
+                self.logger.warning(" FORCE STOP REQUESTED - Stopping backwards scrape")
                 break
 
             # Check storage before each page
@@ -426,7 +426,7 @@ class VideoScraper:
             try:
                 # Check force stop before processing page
                 if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping before page processing")
+                    self.logger.warning(" FORCE STOP REQUESTED - Stopping before page processing")
                     break
 
                 # Process page synchronously
@@ -448,7 +448,7 @@ class VideoScraper:
 
             except Exception as e:
                 if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP during page processing")
+                    self.logger.warning(" FORCE STOP during page processing")
                     break
 
                 self.logger.error(f"Error processing page {current_page}: {e}")
@@ -487,7 +487,7 @@ class VideoScraper:
 
             for i, video_url in enumerate(video_links, 1):
                 if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP during video processing")
+                    self.logger.warning(" FORCE STOP during video processing")
                     break
 
                 try:
@@ -535,7 +535,7 @@ class VideoScraper:
 
         while total_waited < page_delay:
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Interrupting page delay")
+                self.logger.warning(" FORCE STOP REQUESTED - Interrupting page delay")
                 break
 
             time.sleep(min(wait_increment, page_delay - total_waited))
@@ -552,7 +552,7 @@ class VideoScraper:
         while current_page >= 1:
             # CRITICAL: Check for force stop before each page
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping backwards scrape")
+                self.logger.warning(" FORCE STOP REQUESTED - Stopping backwards scrape")
                 break
                 
             # Check storage before each page
@@ -569,7 +569,7 @@ class VideoScraper:
             try:
                 # Check force stop before processing page
                 if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping before page processing")
+                    self.logger.warning(" FORCE STOP REQUESTED - Stopping before page processing")
                     break
                 
                 # NEW: Use parallel processing for this page
@@ -591,7 +591,7 @@ class VideoScraper:
 
             except Exception as e:
                 if self.check_force_stop():
-                    self.logger.warning("🛑 FORCE STOP during page processing")
+                    self.logger.warning(" FORCE STOP during page processing")
                     break
                     
                 self.logger.error(f"Error processing page {current_page}: {e}")
@@ -625,7 +625,7 @@ class VideoScraper:
 
         # Check for force stop at the beginning
         if self.check_force_stop():
-            self.logger.warning("🛑 FORCE STOP REQUESTED - Skipping page processing")
+            self.logger.warning(" FORCE STOP REQUESTED - Skipping page processing")
             return False
 
         # Get video links
@@ -638,7 +638,7 @@ class VideoScraper:
 
         # Check for force stop after getting links
         if self.check_force_stop():
-            self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping after getting video links")
+            self.logger.warning(" FORCE STOP REQUESTED - Stopping after getting video links")
             return False
 
         # PHASE 1: Extract all video info in parallel (existing method)
@@ -647,7 +647,7 @@ class VideoScraper:
 
         # Check for force stop after info extraction
         if self.check_force_stop():
-            self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping after info extraction")
+            self.logger.warning(" FORCE STOP REQUESTED - Stopping after info extraction")
             return False
 
         # Create complete video info objects with full metadata
@@ -655,7 +655,7 @@ class VideoScraper:
         for i, (video_url, crawl4ai_result) in enumerate(zip(video_links, batch_results)):
             # Check force stop during info creation
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping during video info creation")
+                self.logger.warning(" FORCE STOP REQUESTED - Stopping during video info creation")
                 return False
                 
             video_info = await self.create_complete_video_info(video_url, crawl4ai_result)
@@ -680,7 +680,7 @@ class VideoScraper:
 
         # Final force stop check before video processing
         if self.check_force_stop():
-            self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping before video processing phase")
+            self.logger.warning(" FORCE STOP REQUESTED - Stopping before video processing phase")
             return False
 
         # PHASE 2: NEW - PARALLEL VIDEO PROCESSING (complete pipeline)
@@ -697,7 +697,7 @@ class VideoScraper:
         tasks = []
         for video_info in videos_to_process:
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Stopping video task creation")
+                self.logger.warning(" FORCE STOP REQUESTED - Stopping video task creation")
                 break
                 
             # Pass force stop check to video processor
@@ -719,7 +719,7 @@ class VideoScraper:
             results = []
             for task, video_id in tasks:
                 if self.check_force_stop():
-                    self.logger.warning(f"🛑 FORCE STOP REQUESTED - Cancelling remaining video tasks")
+                    self.logger.warning(f" FORCE STOP REQUESTED - Cancelling remaining video tasks")
                     # Cancel remaining tasks
                     for remaining_task, _ in tasks[len(results):]:
                         remaining_task.cancel()
@@ -748,7 +748,7 @@ class VideoScraper:
         except Exception as e:
             self.logger.error(f"Error during parallel video processing: {e}")
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED during video processing")
+                self.logger.warning(" FORCE STOP REQUESTED during video processing")
             return False
 
         # PHASE 3: Final report
@@ -765,7 +765,7 @@ class VideoScraper:
         try:
             # Check force stop before processing
             if self.check_force_stop():
-                self.logger.warning(f"🛑 FORCE STOP - Skipping video {video_info['video_id']}")
+                self.logger.warning(f" FORCE STOP - Skipping video {video_info['video_id']}")
                 return False
                 
             # Use existing video processor but with force stop awareness
@@ -773,7 +773,7 @@ class VideoScraper:
             
         except Exception as e:
             if self.check_force_stop():
-                self.logger.warning(f"🛑 FORCE STOP during video {video_info['video_id']} processing")
+                self.logger.warning(f" FORCE STOP during video {video_info['video_id']} processing")
                 return False
             else:
                 self.logger.error(f"Error processing video {video_info['video_id']}: {e}")
@@ -922,7 +922,7 @@ class VideoScraper:
         
         while total_waited < page_delay:
             if self.check_force_stop():
-                self.logger.warning("🛑 FORCE STOP REQUESTED - Interrupting page delay")
+                self.logger.warning(" FORCE STOP REQUESTED - Interrupting page delay")
                 break
                 
             await asyncio.sleep(min(wait_increment, page_delay - total_waited))
