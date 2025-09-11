@@ -745,19 +745,103 @@ class VideoInfoExtractor:
         return True
 
     def extract_uploaded_by(self):
-        """Extract uploaded by using the correct XPath selector"""
+        """
+        Robust extraction of the 'Uploaded by' value.
+        - Primary: find the column that has a label 'Uploaded by' and read its anchor/text.
+        - Fallbacks: sibling anchor, any nearby .item.btn_link, page-source regex for 'Uploaded by'.
+        Returns: string (e.g. 'Anonymous' or 'Unknown' if not found)
+        """
         try:
-            # Using the provided XPath: //*[@id="tab_video_info"]/div[3]/div/div[3]/a
-            uploaded_by_element = self.driver.find_element(By.XPATH, '//*[@id="tab_video_info"]/div[3]/div/div[3]/a')
-            uploaded_by = uploaded_by_element.text.strip()
-            self.logger.info(f"Uploaded by extracted: {uploaded_by}")
-            return uploaded_by
-        except NoSuchElementException:
-            self.logger.warning("Could not extract uploaded_by, using default")
-            return "Anonymous"
+            # 1) Primary XPath: the column whose .label text is 'Uploaded by'
+            uploaded_by_col_xpath = "//div[@id='tab_video_info']//div[@class='col'][.//div[contains(@class,'label') and normalize-space(text())='Uploaded by']]"
+            try:
+                uploaded_by_col = self.driver.find_element(By.XPATH, uploaded_by_col_xpath)
+            except NoSuchElementException:
+                # Try more generic search (some pages vary slightly)
+                uploaded_by_col = None
+
+            if uploaded_by_col:
+                # prefer anchor with btn_link
+                try:
+                    # anchor may contain span or direct text
+                    uploaded_by_link = uploaded_by_col.find_element(By.XPATH, ".//a[contains(@class,'item') or contains(@class,'btn_link')][1]")
+                    uploaded_by = uploaded_by_link.text.strip()
+                    if uploaded_by:
+                        self.logger.info(f"Uploaded by extracted (col -> a): {uploaded_by}")
+                        return uploaded_by
+                except NoSuchElementException:
+                    # maybe text node directly after label
+                    try:
+                        # sibling text (direct text node following the label div)
+                        text_node = uploaded_by_col.find_element(By.XPATH, ".//div[not(contains(@class,'label'))]")
+                        txt = text_node.text.strip()
+                        if txt:
+                            self.logger.info(f"Uploaded by extracted (col -> div text): {txt}")
+                            return txt
+                    except Exception:
+                        pass
+
+            # 2) Generic: look for any label-like element containing 'Uploaded by' and grab following link/text
+            try:
+                label_el = self.driver.find_element(By.XPATH, "//div[@id='tab_video_info']//div[contains(@class,'label') and contains(normalize-space(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')),'uploaded by')]")
+                # following-sibling anchor
+                try:
+                    uploader_anchor = label_el.find_element(By.XPATH, "following-sibling::a[contains(@class,'item') or contains(@class,'btn_link')][1]")
+                    uploader_text = uploader_anchor.text.strip()
+                    if uploader_text:
+                        self.logger.info(f"Uploaded by extracted (label -> following a): {uploader_text}")
+                        return uploader_text
+                except NoSuchElementException:
+                    # maybe within the same parent
+                    try:
+                        parent = label_el.find_element(By.XPATH, "..")
+                        candidate = parent.find_element(By.XPATH, ".//a[contains(@class,'item') or contains(@class,'btn_link')][1]")
+                        candidate_txt = candidate.text.strip()
+                        if candidate_txt:
+                            self.logger.info(f"Uploaded by extracted (label parent -> a): {candidate_txt}")
+                            return candidate_txt
+                    except Exception:
+                        pass
+            except NoSuchElementException:
+                pass
+
+            # 3) Fallback: any anchor under tab_video_info which visually matches the "Uploaded by" area
+            try:
+                anchors = self.driver.find_elements(By.XPATH, "//*[@id='tab_video_info']//a[contains(@class,'item') or contains(@class,'btn_link')]")
+                # heuristics: pick the anchor that follows a small set of known labels or comes after Artist/Categories block
+                for a in anchors:
+                    txt = a.text.strip()
+                    if not txt:
+                        continue
+                    # ignore tags like 'Suggest' etc
+                    if any(ignore in txt.lower() for ignore in ['suggest', 'mp4', 'download']):
+                        continue
+                    # If it's the only author/uploader-like anchor or looks like a username, accept it
+                    if len(txt) <= 60:  # small heuristic
+                        self.logger.info(f"Uploaded by extracted (generic anchors): {txt}")
+                        return txt
+            except Exception:
+                pass
+
+            # 4) Final fallback: try page source regex (covers pages where structure is odd)
+            try:
+                page = self.driver.page_source
+                m = re.search(r'Uploaded by[\s:\n]*<[^>]*>([^<]+)</', page, re.IGNORECASE)
+                if m:
+                    val = m.group(1).strip()
+                    if val:
+                        self.logger.info(f"Uploaded by extracted (page-source regex): {val}")
+                        return val
+            except Exception:
+                pass
+
+            self.logger.warning("Could not extract uploaded_by, returning 'Unknown'")
+            return "Unknown"
+
         except Exception as e:
             self.logger.error(f"Error extracting uploaded_by: {e}")
-            return "Anonymous"
+            return "Unknown"
+
 
     def extract_categories(self):
         """Extract categories using the correct structure from the HTML"""
@@ -873,60 +957,127 @@ class VideoInfoExtractor:
             return "Unknown"
 
     def extract_description(self):
-        """Extract video description - looking for description in the video info area"""
+        """
+        Robust extraction of the video description / metadata block.
+        Strategy:
+        1) look for <div id="tab_video_info"> and within it check description-like blocks:
+            - <p> tags
+            - the second .info row (often used for longer text)
+            - any div.wrap children that are not label elements
+        2) Filter out UI lines/labels (categories, tags, download, mp4, views, uploaded by)
+        3) Fallback: use page_source regex to capture lines like 'Patreon:', 'Author:', 'Source:'.
+        Returns a cleaned description string or 'No description available'.
+        """
         try:
-            # Look for description in various possible locations within tab_video_info
-            description_selectors = [
-                "//div[@id='tab_video_info']//div[contains(@class, 'description')]",
-                "//div[@id='tab_video_info']//div[contains(@class, 'desc')]", 
-                "//div[@id='tab_video_info']//p[string-length(text()) > 20]",
-                "//div[@id='tab_video_info']//div[@class='info'][2]//div[not(contains(@class, 'label')) and string-length(normalize-space(text())) > 50]",
-                "//div[@id='tab_video_info']//div[@class='wrap']//div[not(@class='label') and string-length(normalize-space(text())) > 30]"
-            ]
-            
-            description = ""
-            for selector in description_selectors:
-                try:
-                    description_elements = self.driver.find_elements(By.XPATH, selector)
-                    for desc_elem in description_elements:
-                        text = desc_elem.text.strip()
-                        # Skip elements that contain navigation or known non-description content
-                        if (text and len(text) > 20 and 
-                            not any(skip_word in text.lower() for skip_word in 
-                                    ['download', 'suggest', 'tags', 'categories', 'uploaded', 'views', 'duration', 
-                                    'artist', 'mp4', 'ago', 'submit', 'add to', 'favorite'])):
-                            description = text
-                            break
-                    if description:
-                        break
-                except NoSuchElementException:
-                    continue
+            desc_text = ""
 
-            # If still no description found, try looking for any substantial text content
-            if not description:
+            try:
+                root = self.driver.find_element(By.ID, "tab_video_info")
+            except NoSuchElementException:
+                root = None
+
+            candidates = []
+
+            if root:
+                # 1) paragraphs
                 try:
-                    # Look in the second info div which might contain description
-                    desc_div = self.driver.find_element(By.XPATH, "//div[@id='tab_video_info']/div[@class='info'][2]")
-                    text = desc_div.text.strip()
-                    # Filter out known UI elements and labels
-                    lines = [line.strip() for line in text.split('\n') if line.strip()]
-                    description_lines = []
-                    
-                    for line in lines:
-                        if (len(line) > 15 and 
-                            not any(skip in line.lower() for skip in 
-                                    ['categories', 'artist', 'uploaded by', 'tags', 'suggest', 'download', 
-                                    'mp4', 'views', 'duration', 'ago', 'add to', 'favorite'])):
-                            description_lines.append(line)
-                    
-                    if description_lines:
-                        description = ' '.join(description_lines)
-                except:
+                    p_elems = root.find_elements(By.XPATH, ".//p")
+                    candidates.extend([p.text.strip() for p in p_elems if p.text and len(p.text.strip()) > 10])
+                except Exception:
                     pass
 
-            result = description if description else "No description available"
-            self.logger.info(f"Description extracted: {result[:100]}..." if len(result) > 100 else f"Description extracted: {result}")
-            return result
+                # 2) info rows beyond the first (first info row usually has date/views/duration)
+                try:
+                    info_rows = root.find_elements(By.XPATH, ".//div[contains(@class,'info')]")
+                    if len(info_rows) >= 2:
+                        # take the text from subsequent info rows (join them)
+                        for info in info_rows[1:]:
+                            txt = info.text.strip()
+                            if txt and len(txt) > 20:
+                                candidates.append(txt)
+                except Exception:
+                    pass
+
+                # 3) any wrap block (often holds the description) excluding small label elements
+                try:
+                    wrap_divs = root.find_elements(By.XPATH, ".//div[contains(@class,'wrap')]//div[not(contains(@class,'label'))]")
+                    for w in wrap_divs:
+                        txt = w.text.strip()
+                        if txt and len(txt) > 15:
+                            candidates.append(txt)
+                except Exception:
+                    pass
+
+                # 4) direct sibling text nodes that are not labels: iterate root children
+                try:
+                    children = root.find_elements(By.XPATH, "./*")
+                    for c in children:
+                        try:
+                            ctext = c.text.strip()
+                            if ctext and len(ctext) > 20 and not any(skip in ctext.lower() for skip in ['categories', 'tags', 'download', 'mp4', 'uploaded by', 'views', 'duration', 'artist']):
+                                candidates.append(ctext)
+                        except Exception:
+                            continue
+                except Exception:
+                    pass
+
+            # Filter candidates: remove UI-ish lines and keep descriptive lines
+            filtered = []
+            for cand in candidates:
+                # split into smaller lines and keep ones that look like real descriptions (avoid single-label lines)
+                for line in cand.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    low = line.lower()
+                    if len(line) < 12:
+                        continue
+                    if any(skip in low for skip in ['suggest', '+ |', 'mp4', 'download', 'views', 'added', 'uploaded by', 'duration', 'tags', 'categories']):
+                        continue
+                    filtered.append(line)
+
+            if filtered:
+                # Join unique lines preserving order
+                seen = set()
+                parts = []
+                for s in filtered:
+                    if s not in seen:
+                        parts.append(s)
+                        seen.add(s)
+                desc_text = " ".join(parts).strip()
+
+            # Fallback: page source regex for common metadata lines (Patreon, Author, Source)
+            if not desc_text:
+                try:
+                    page = self.driver.page_source
+                    parts = []
+                    for key in ['Patreon', 'Author', 'Source', 'Source:']:
+                        m = re.search(rf'({key}\s*[:\-]?\s*(?:https?://\S+|\S[^\n<]+))', page, re.IGNORECASE)
+                        if m:
+                            v = m.group(1).strip()
+                            # clean html tags if any
+                            v = re.sub(r'<[^>]+>', '', v).strip()
+                            if v and v not in parts:
+                                parts.append(v)
+                    # Also try to capture lines like "Author: Name"
+                    m_all = re.findall(r'(Patreon:\s*\S+|Author:\s*[^<\n]+|Source:\s*[^<\n]+)', page, re.IGNORECASE)
+                    for mline in m_all:
+                        cleaned = re.sub(r'<[^>]+>', '', mline).strip()
+                        if cleaned and cleaned not in parts:
+                            parts.append(cleaned)
+                    if parts:
+                        desc_text = " ".join(parts).strip()
+                except Exception:
+                    pass
+
+            if not desc_text:
+                self.logger.info("No substantive description found; returning default text.")
+                return "No description available"
+
+            # Final cleanup: reduce whitespace
+            desc_text = re.sub(r'\s{2,}', ' ', desc_text).strip()
+            self.logger.info(f"Description extracted: {desc_text[:200]}{'...' if len(desc_text)>200 else ''}")
+            return desc_text
 
         except Exception as e:
             self.logger.error(f"Error extracting description: {e}")
