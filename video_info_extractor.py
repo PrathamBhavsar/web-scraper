@@ -588,48 +588,47 @@ class VideoInfoExtractor:
     def set_default_values(self, video_info):
         """Ensure all required fields have valid defaults - UPDATED to prioritize uploaded_by"""
         if not video_info.get("title"):
-            video_info["title"] = f"Video_{video_info.get('video_id', '')}"
+            video_info["title"] = ""
 
         if not video_info.get("duration") or video_info.get("duration") in ["00:00", "0:00"]:
-            # Try to get actual duration from video element one more time
             actual_duration = self.extract_duration()
-            video_info["duration"] = actual_duration if actual_duration else "00:30"
+            video_info["duration"] = actual_duration if actual_duration else ""
 
         if not video_info.get("views"):
-            video_info["views"] = "0"
+            video_info["views"] = ""
 
         # Prioritize uploaded_by over uploader
         if not video_info.get("uploaded_by"):
-            video_info["uploaded_by"] = video_info.get("uploader", "Anonymous")
+            video_info["uploaded_by"] = video_info.get("uploader", "")
         
         # Set uploader to match uploaded_by for backward compatibility
-        video_info["uploader"] = video_info.get("uploaded_by", "Anonymous")
+        video_info["uploader"] = video_info.get("uploaded_by", "")
 
         # Set default for description
         if not video_info.get("description"):
-            video_info["description"] = "No description available"
+            video_info["description"] = ""
 
-        # Set default for categories
+        # Set default for categories: always empty list if missing or empty
         if not video_info.get("categories") or (isinstance(video_info.get("categories"), list) and not video_info["categories"]):
-            video_info["categories"] = ["uncategorized"]
+            video_info["categories"] = []
 
         # Set default for artists
         if not video_info.get("artists") or (isinstance(video_info.get("artists"), list) and not video_info["artists"]):
-            video_info["artists"] = ["unknown_artist"]
+            video_info["artists"] = []
 
         # Use integer timestamp for upload_date
         if not video_info.get("upload_date") or video_info["upload_date"] == "Unknown":
             video_info["upload_date"] = int(datetime.now().timestamp() * 1000)
         elif "upload_date_epoch" in video_info and video_info["upload_date_epoch"]:
-            # Convert epoch to upload_date if it exists
             video_info["upload_date"] = int(video_info["upload_date_epoch"])
 
         # Remove upload_date_epoch field if it exists
         if "upload_date_epoch" in video_info:
             del video_info["upload_date_epoch"]
 
-        if not video_info.get("tags"):
-            video_info["tags"] = ["untagged"]
+        # Set default for tags: always empty list if missing or empty
+        if not video_info.get("tags") or (isinstance(video_info.get("tags"), list) and not video_info["tags"]):
+            video_info["tags"] = []
 
         # Remove crawl4ai data fields
         for key in ["crawl4ai_data", "crawl4ai_listing_data", "crawl4ai_detail_data"]:
