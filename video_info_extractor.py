@@ -956,134 +956,116 @@ class VideoInfoExtractor:
             self.logger.error(f"Error extracting uploaded_by: {e}")
             return "Unknown"
 
-    def extract_description(self):
+    def extract_description(self) -> str:
         """
-        Robust extraction of the video description / metadata block.
-        Strategy:
-        1) look for <div id="tab_video_info"> and within it check description-like blocks:
-            - <p> tags
-            - the second .info row (often used for longer text)
-            - any div.wrap children that are not label elements
-        2) Filter out UI lines/labels (categories, tags, download, mp4, views, uploaded by)
-        3) Fallback: use page_source regex to capture lines like 'Patreon:', 'Author:', 'Source:'.
-        Returns a cleaned description string or 'No description available'.
+        Robustly extract the description for rule34video pages using Selenium.
+        - The description is the text node (or element) immediately after the duration and before the 'Categories' heading.
+        - If not found, return empty string.
+        - Print debug info for troubleshooting.
         """
         try:
-            desc_text = ""
-
+            print("[extract_description] Attempting to extract description...")
+            # Find the main info container (usually #tab_video_info or similar)
+            info_container = None
             try:
-                root = self.driver.find_element(By.ID, "tab_video_info")
-            except NoSuchElementException:
-                root = None
-
-            candidates = []
-
-            if root:
-                # 1) paragraphs
+                info_container = self.driver.find_element(By.CSS_SELECTOR, '#tab_video_info')
+            except Exception:
+                print("[extract_description] #tab_video_info not found, trying fallback container...")
+                # Try fallback containers if needed
                 try:
-                    p_elems = root.find_elements(By.XPATH, ".//p")
-                    candidates.extend([p.text.strip() for p in p_elems if p.text and len(p.text.strip()) > 10])
+                    info_container = self.driver.find_element(By.CSS_SELECTOR, 'div.info, div.info.row')
                 except Exception:
-                    pass
+                    print("[extract_description] No info container found.")
+                    return ""
 
-                # 2) info rows beyond the first (first info row usually has date/views/duration)
+            # Get all children of the info container
+            children = info_container.find_elements(By.XPATH, './*')
+            # Find the duration element and the Categories heading
+            duration_idx = -1
+            categories_idx = -1
+            for idx, child in enumerate(children):
+                text = child.text.strip().lower()
+                if self._is_duration_like(text):
+                    duration_idx = idx
+                if 'categories' in text:
+                    categories_idx = idx
+                    break
+            print(f"[extract_description] duration_idx={duration_idx}, categories_idx={categories_idx}")
+            # The description is the text between duration and categories
+            description = ""
+            if duration_idx != -1 and categories_idx != -1 and categories_idx > duration_idx:
+                for idx in range(duration_idx + 1, categories_idx):
+                    desc_candidate = children[idx].text.strip()
+                    if desc_candidate and not self._is_view_like_text(desc_candidate):
+                        description += desc_candidate + " "
+                description = description.strip()
+            # Fallback: try to find a text node between duration and categories
+            if not description:
                 try:
-                    info_rows = root.find_elements(By.XPATH, ".//div[contains(@class,'info')]")
-                    if len(info_rows) >= 2:
-                        # take the text from subsequent info rows (join them)
-                        for info in info_rows[1:]:
-                            txt = info.text.strip()
-                            if txt and len(txt) > 20:
-                                candidates.append(txt)
-                except Exception:
-                    pass
-
-                # 3) any wrap block (often holds the description) excluding small label elements
-                try:
-                    wrap_divs = root.find_elements(By.XPATH, ".//div[contains(@class,'wrap')]//div[not(contains(@class,'label'))]")
-                    for w in wrap_divs:
-                        txt = w.text.strip()
-                        if txt and len(txt) > 15:
-                            candidates.append(txt)
-                except Exception:
-                    pass
-
-                # 4) direct sibling text nodes that are not labels: iterate root children
-                try:
-                    children = root.find_elements(By.XPATH, "./*")
-                    for c in children:
-                        try:
-                            ctext = c.text.strip()
-                            if ctext and len(ctext) > 20 and not any(skip in ctext.lower() for skip in ['categories', 'tags', 'download', 'mp4', 'uploaded by', 'views', 'duration', 'artist']):
-                                candidates.append(ctext)
-                        except Exception:
-                            continue
-                except Exception:
-                    pass
-
-            # Filter candidates: remove UI-ish lines and keep descriptive lines
-            filtered = []
-            for cand in candidates:
-                # split into smaller lines and keep ones that look like real descriptions (avoid single-label lines)
-                for line in cand.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    low = line.lower()
-                    if len(line) < 12:
-                        continue
-                    if any(skip in low for skip in ['suggest', '+ |', 'mp4', 'download', 'views', 'added', 'uploaded by', 'duration', 'tags', 'categories']):
-                        continue
-                    filtered.append(line)
-
-            if filtered:
-                # Join unique lines preserving order
-                seen = set()
-                parts = []
-                for s in filtered:
-                    if s not in seen:
-                        parts.append(s)
-                        seen.add(s)
-                desc_text = " ".join(parts).strip()
-
-            # Fallback: page source regex for common metadata lines (Patreon, Author, Source)
-            if not desc_text:
-                try:
-                    page = self.driver.page_source
-                    parts = []
-                    for key in ['Patreon', 'Author', 'Source', 'Source:']:
-                        m = re.search(rf'({key}\s*[:\-]?\s*(?:https?://\S+|\S[^\n<]+))', page, re.IGNORECASE)
-                        if m:
-                            v = m.group(1).strip()
-                            # clean html tags if any
-                            v = re.sub(r'<[^>]+>', '', v).strip()
-                            if v and v not in parts:
-                                parts.append(v)
-                    # Also try to capture lines like "Author: Name"
-                    m_all = re.findall(r'(Patreon:\s*\S+|Author:\s*[^<\n]+|Source:\s*[^<\n]+)', page, re.IGNORECASE)
-                    for mline in m_all:
-                        cleaned = re.sub(r'<[^>]+>', '', mline).strip()
-                        if cleaned and cleaned not in parts:
-                            parts.append(cleaned)
-                    if parts:
-                        desc_text = " ".join(parts).strip()
-                except Exception:
-                    pass
-
-            if not desc_text:
-                self.logger.info("No substantive description found; returning default text.")
-                return "No description available"
-
-            # Final cleanup: reduce whitespace
-            desc_text = re.sub(r'\s{2,}', ' ', desc_text).strip()
-            self.logger.info(f"Description extracted: {desc_text[:200]}{'...' if len(desc_text)>200 else ''}")
-            return desc_text
+                    # Get all text nodes in info_container
+                    all_text = info_container.text
+                    # Find duration and categories in the text
+                    lines = [line.strip() for line in all_text.split('\n') if line.strip()]
+                    dur_idx = -1
+                    cat_idx = -1
+                    for i, line in enumerate(lines):
+                        if self._is_duration_like(line):
+                            dur_idx = i
+                        if 'categories' in line.lower():
+                            cat_idx = i
+                            break
+                    print(f"[extract_description] Fallback text search: dur_idx={dur_idx}, cat_idx={cat_idx}")
+                    if dur_idx != -1 and cat_idx != -1 and cat_idx > dur_idx:
+                        desc_lines = []
+                        for i in range(dur_idx + 1, cat_idx):
+                            if lines[i] and not self._is_view_like_text(lines[i]):
+                                desc_lines.append(lines[i])
+                        description = ' '.join(desc_lines).strip()
+                except Exception as e:
+                    print(f"[extract_description] Fallback text node search failed: {e}")
+            print(f"[extract_description] Extracted description: '{description}'")
+            return description
+        except Exception as e:
+            print(f"[extract_description] Exception: {e}")
+            return ""
 
         except Exception as e:
-            self.logger.error(f"Error extracting description: {e}")
-            return "No description available"
+            try:
+                self.logger.exception("extract_description failed: %s", e)
+            except:
+                print("extract_description failed:", e)
+            return ""
+    def _is_view_like_text(self, text: str) -> bool:
+        """Return True for strings that look like view counts, durations, or numeric metadata."""
+        if not text:
+            return False
+        t = text.strip()
+        # e.g. "1.4M (1,403,680)"
+        if re.match(r'^[\d.,]+\s*[KkMmBb]?\s*\(\s*[\d,]+\s*\)$', t):
+            return True
+        # e.g. "1.4M", "2.3K"
+        if re.match(r'^[\d.,]+\s*[KkMmBb]$', t):
+            return True
+        # e.g. "1,403,680" or "1403680"
+        if re.match(r'^[\d,]+$', t):
+            return True
+        # numbers with thousands separators
+        if re.search(r'\b\d{1,3}(?:,\d{3})+\b', t):
+            return True
+        # timestamps like 0:18, 01:50, etc.
+        if re.match(r'^\d{1,2}:\d{2}$', t):
+            return True
+        return False
 
-          
+    def _is_duration_like(self, text: str) -> bool:
+        """Return True if the text looks like a video duration (e.g. 0:18, 01:50)."""
+        if not text:
+            return False
+        t = text.strip()
+        return bool(re.match(r'^\d{1,2}:\d{2}$', t))
+
+
+
     def supplement_with_selenium(self, video_info, video_url):
         """Use Selenium to fill in missing information - UPDATED with correct selectors"""
         try:
@@ -1111,7 +1093,7 @@ class VideoInfoExtractor:
                 video_info["uploader"] = uploaded_by
 
             # Extract description
-            if not video_info.get("description") or video_info["description"] == "No description available":
+            if not video_info.get("description") or video_info["description"] == "":
                 self.logger.debug("Extracting description...")
                 video_info["description"] = self.extract_description()
 
