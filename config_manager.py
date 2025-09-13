@@ -64,7 +64,7 @@ class ConfigManager:
                 "validation_delay_seconds": 1
             }
         }
-        
+
         with open(self.config_path, 'w', encoding='utf-8') as f:
             json.dump(default_config, f, indent=2)
         return default_config

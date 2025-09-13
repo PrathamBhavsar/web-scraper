@@ -12,6 +12,7 @@ class FileValidator:
 
     def validate_video_info(self, video_info):
         """Comprehensive validation of extracted video metadata with safe config access"""
+
         if not video_info:
             self.logger.error("Video info is None")
             return False, ["Video info is None"]
@@ -91,6 +92,7 @@ class FileValidator:
                 warnings.append(f"Tags should be a list, got: {type(tags)}")
             elif len(tags) == 0:
                 errors.append("Tags list is empty - should have at least some tags")
+
 
     def validate_video_folder(self, video_id):
         """Relaxed folder validation - only check for essential files"""
@@ -179,6 +181,7 @@ class FileValidator:
             if thumb_file.stat().st_size < min_thumbnail_size:
                 validation_errors.append(f"Thumbnail file too small: {thumb_file.stat().st_size} bytes")
 
+
     def verify_video_file(self, filepath):
         """Much more lenient video file verification"""
         try:
@@ -237,6 +240,7 @@ class FileValidator:
 
     def validate_complete_download(self, video_info, video_dir):
         """Comprehensive validation of the complete download."""
+
         video_id = video_info["video_id"]
         try:
             # FIX: Define json_file properly before using it
@@ -263,3 +267,4 @@ class FileValidator:
         except Exception as e:
             self.logger.error(f"Error in complete download validation for {video_id}: {e}")
             return False, [f"Validation error: {e}"]
+
