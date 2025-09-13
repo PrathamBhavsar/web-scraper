@@ -2,10 +2,10 @@
   "general": {
     "base_url": "https://rule34video.com",
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "download_path": "C:\\scraper_downloads\\",
+    "download_path": "E:\\down\\",
     "delay_between_requests": 1000,
     "delay_between_pages": 5000,
-    "max_storage_gb": 1
+    "max_storage_gb": 940
   },
   "processing": {
     "mode": "direct",
@@ -28,7 +28,11 @@
     "read_timeout_seconds": 300
   },
   "validation": {
-    "required_json_fields": ["video_id", "title", "video_src"],
+    "required_json_fields": [
+      "video_id",
+      "title",
+      "video_src"
+    ],
     "min_video_size_bytes": 1024,
     "min_thumbnail_size_bytes": 100,
     "validation_delay_seconds": 2

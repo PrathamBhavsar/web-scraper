@@ -1,6 +1,5 @@
-
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, filedialog
 import subprocess
 import threading
 import json
@@ -9,30 +8,31 @@ import os
 from pathlib import Path
 import queue
 import sys
+import platform
 
 class WebParserGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Web Parser GUI")
-        self.root.geometry("900x700")
+        self.root.geometry("900x750")
         self.root.resizable(True, True)
-
+        
         # Initialize variables
         self.process = None
         self.is_running = False
         self.config = {}
         self.progress = {}
-
+        
         # Queue for thread-safe GUI updates
         self.log_queue = queue.Queue()
-
+        
         # Load initial data
         self.load_config()
         self.load_progress()
-
+        
         # Create GUI elements
         self.create_widgets()
-
+        
         # Start update timer
         self.update_stats()
         self.process_log_queue()
@@ -44,11 +44,21 @@ class WebParserGUI:
                 with open("config.json", 'r', encoding='utf-8') as f:
                     self.config = json.load(f)
             else:
-                self.config = {"general": {"max_storage_gb": 100}}
+                self.config = {"general": {"max_storage_gb": 100, "download_path": "C:\\scraper_downloads\\"}}
                 messagebox.showwarning("Config Warning", "config.json not found. Using default values.")
         except Exception as e:
             messagebox.showerror("Config Error", f"Error loading config.json: {e}")
-            self.config = {"general": {"max_storage_gb": 100}}
+            self.config = {"general": {"max_storage_gb": 100, "download_path": "C:\\scraper_downloads\\"}}
+
+    def save_config(self):
+        """Save configuration to config.json"""
+        try:
+            with open("config.json", 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=2)
+            return True
+        except Exception as e:
+            messagebox.showerror("Config Error", f"Error saving config.json: {e}")
+            return False
 
     def load_progress(self):
         """Load progress from progress.json"""
@@ -74,20 +84,30 @@ class WebParserGUI:
                 "last_page": 0
             }
 
+    def save_progress(self):
+        """Save progress to progress.json"""
+        try:
+            with open("progress.json", 'w', encoding='utf-8') as f:
+                json.dump(self.progress, f, indent=2)
+            return True
+        except Exception as e:
+            messagebox.showerror("Progress Error", f"Error saving progress.json: {e}")
+            return False
+
     def create_widgets(self):
         """Create and layout GUI widgets"""
         # Main frame
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-
+        
         # Configure grid weights
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(2, weight=1)
+        main_frame.rowconfigure(3, weight=1)  # Adjusted for new row
 
         # Title
-        title_label = ttk.Label(main_frame, text="Web Parser Controller", 
+        title_label = ttk.Label(main_frame, text="Web Parser Controller",
                                font=('Arial', 16, 'bold'))
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
 
@@ -116,32 +136,61 @@ class WebParserGUI:
         self.page_label = ttk.Label(stats_frame, text="0", font=('Arial', 10, 'bold'))
         self.page_label.grid(row=3, column=1, sticky=tk.W, pady=(5, 0))
 
-        # Control frame
-        control_frame = ttk.Frame(main_frame)
-        control_frame.grid(row=3, column=0, columnspan=2, pady=(10, 0))
+        # Download path display
+        ttk.Label(stats_frame, text="Download Path:").grid(row=4, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.path_label = ttk.Label(stats_frame, text=self.config.get("general", {}).get("download_path", "N/A"), 
+                                   font=('Arial', 9), foreground='blue')
+        self.path_label.grid(row=4, column=1, sticky=tk.W, pady=(5, 0))
+
+        # Control frame - Main scraper controls
+        control_frame = ttk.LabelFrame(main_frame, text="Scraper Controls", padding="10")
+        control_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+
+        # First row of controls
+        control_row1 = ttk.Frame(control_frame)
+        control_row1.pack(fill=tk.X, pady=(0, 10))
 
         # Start/Stop buttons
-        self.start_button = ttk.Button(control_frame, text=" Start Scraper", 
-                                      command=self.start_scraper, style='Success.TButton')
+        self.start_button = ttk.Button(control_row1, text="▶ Start Scraper",
+                                      command=self.start_scraper)
         self.start_button.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.stop_button = ttk.Button(control_frame, text=" Stop Scraper", 
+        self.stop_button = ttk.Button(control_row1, text="⏸ Stop Scraper",
                                      command=self.stop_scraper, state='disabled')
         self.stop_button.pack(side=tk.LEFT, padx=(0, 10))
 
         # Clear logs button
-        self.clear_button = ttk.Button(control_frame, text=" Clear Logs", 
+        self.clear_button = ttk.Button(control_row1, text="🗑 Clear Logs",
                                       command=self.clear_logs)
         self.clear_button.pack(side=tk.LEFT, padx=(0, 10))
 
         # Status label
-        self.status_label = ttk.Label(control_frame, text="Ready to start", 
+        self.status_label = ttk.Label(control_row1, text="Ready to start",
                                      font=('Arial', 10, 'italic'))
         self.status_label.pack(side=tk.LEFT, padx=(20, 0))
 
+        # Second row of controls - NEW BUTTONS
+        control_row2 = ttk.Frame(control_frame)
+        control_row2.pack(fill=tk.X)
+
+        # Set download path button
+        self.set_path_button = ttk.Button(control_row2, text="📂 Set Download Path",
+                                         command=self.set_download_path)
+        self.set_path_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Reset progress button
+        self.reset_progress_button = ttk.Button(control_row2, text="🔄 Reset Progress",
+                                               command=self.reset_progress)
+        self.reset_progress_button.pack(side=tk.LEFT, padx=(0, 10))
+
+        # Open downloads folder button
+        self.open_downloads_button = ttk.Button(control_row2, text="📁 Open Downloads",
+                                               command=self.open_downloads_folder)
+        self.open_downloads_button.pack(side=tk.LEFT, padx=(0, 10))
+
         # Log frame
         log_frame = ttk.LabelFrame(main_frame, text="Scraper Output", padding="5")
-        log_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
+        log_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
 
@@ -159,7 +208,153 @@ class WebParserGUI:
         # Add welcome message
         self.add_log_message("=== Web Parser GUI Started ===\n", "info")
         self.add_log_message(f"Config loaded: max_storage = {self.config.get('general', {}).get('max_storage_gb', 100)} GB\n")
-        self.add_log_message(f"Ready to start scraping...\n")
+        self.add_log_message(f"Download path: {self.config.get('general', {}).get('download_path', 'N/A')}\n")
+        self.add_log_message("Ready to start scraping...\n")
+
+        # Update button states
+        self.update_button_states()
+
+    def update_button_states(self):
+        """Update button states based on scraper running status"""
+        if self.is_running:
+            # When running, disable buttons that modify config/progress
+            self.start_button.config(state='disabled')
+            self.stop_button.config(state='normal')
+            self.set_path_button.config(state='disabled')
+            self.reset_progress_button.config(state='disabled')
+            # Keep open downloads button always enabled
+            self.open_downloads_button.config(state='normal')
+        else:
+            # When not running, enable all buttons
+            self.start_button.config(state='normal')
+            self.stop_button.config(state='disabled')
+            self.set_path_button.config(state='normal')
+            self.reset_progress_button.config(state='normal')
+            self.open_downloads_button.config(state='normal')
+
+    def set_download_path(self):
+        """Set the download path for the scraper"""
+        if self.is_running:
+            messagebox.showwarning("Scraper Running", "Cannot change download path while scraper is running.")
+            return
+
+        # Get current path
+        current_path = self.config.get("general", {}).get("download_path", "C:\\scraper_downloads\\")
+        
+        # Normalize path for display
+        if os.path.exists(current_path):
+            initial_dir = os.path.normpath(current_path)
+        else:
+            initial_dir = os.path.expanduser("~")  # Default to user home directory
+
+        # Show folder selection dialog
+        new_path = filedialog.askdirectory(
+            title="Select Download Folder",
+            initialdir=initial_dir,
+            mustexist=False  # Allow creating new directories
+        )
+
+        if new_path:
+            # Normalize path and ensure it ends with appropriate separator
+            normalized_path = os.path.normpath(new_path)
+            
+            # Add trailing slash/backslash for consistency
+            if not normalized_path.endswith(os.sep):
+                normalized_path += os.sep
+
+            # Create directory if it doesn't exist
+            try:
+                os.makedirs(normalized_path, exist_ok=True)
+            except Exception as e:
+                messagebox.showerror("Path Error", f"Cannot create directory:\n{normalized_path}\n\nError: {e}")
+                return
+
+            # Update config
+            if "general" not in self.config:
+                self.config["general"] = {}
+            
+            self.config["general"]["download_path"] = normalized_path
+
+            # Save config
+            if self.save_config():
+                # Update display
+                self.path_label.config(text=normalized_path)
+                self.add_log_message(f"Download path updated to: {normalized_path}\n", "success")
+                messagebox.showinfo("Path Updated", f"Download path successfully updated to:\n{normalized_path}")
+            else:
+                self.add_log_message(f"Failed to save download path change\n", "error")
+
+    def reset_progress(self):
+        """Reset the scraper progress (set total_size_mb to 0)"""
+        if self.is_running:
+            messagebox.showwarning("Scraper Running", "Cannot reset progress while scraper is running.")
+            return
+
+        # Confirm with user
+        result = messagebox.askyesno(
+            "Reset Progress", 
+            "This will reset the total download size to 0 MB.\n\n"
+            "The scraper will start from the beginning or last configured page.\n\n"
+            "Are you sure you want to continue?",
+            icon='warning'
+        )
+
+        if result:
+            try:
+                # Reset total_size_mb to 0
+                self.progress["total_size_mb"] = 0
+                
+                # Save progress
+                if self.save_progress():
+                    self.add_log_message("Progress reset: total_size_mb set to 0\n", "success")
+                    messagebox.showinfo("Progress Reset", "Progress has been reset successfully.\nTotal download size is now 0 MB.")
+                    
+                    # Refresh display
+                    self.update_stats()
+                else:
+                    self.add_log_message("Failed to save progress reset\n", "error")
+
+            except Exception as e:
+                messagebox.showerror("Reset Error", f"Error resetting progress: {e}")
+                self.add_log_message(f"Error resetting progress: {e}\n", "error")
+
+    def open_downloads_folder(self):
+        """Open the downloads folder in the system file explorer"""
+        download_path = self.config.get("general", {}).get("download_path", "")
+        
+        if not download_path:
+            messagebox.showwarning("No Path Set", "No download path is configured.")
+            return
+
+        # Normalize the path
+        normalized_path = os.path.normpath(download_path)
+
+        # Create directory if it doesn't exist
+        try:
+            os.makedirs(normalized_path, exist_ok=True)
+        except Exception as e:
+            messagebox.showerror("Path Error", f"Cannot access or create directory:\n{normalized_path}\n\nError: {e}")
+            return
+
+        # Open folder based on operating system
+        try:
+            system = platform.system().lower()
+            
+            if system == "windows":
+                os.startfile(normalized_path)
+            elif system == "darwin":  # macOS
+                subprocess.run(["open", normalized_path])
+            elif system == "linux":
+                subprocess.run(["xdg-open", normalized_path])
+            else:
+                messagebox.showwarning("Unsupported OS", f"Cannot automatically open folder on {system}.\n\nPath: {normalized_path}")
+                return
+                
+            self.add_log_message(f"Opened downloads folder: {normalized_path}\n", "info")
+            
+        except Exception as e:
+            messagebox.showerror("Open Error", f"Cannot open downloads folder:\n{normalized_path}\n\nError: {e}")
+            self.add_log_message(f"Error opening downloads folder: {e}\n", "error")
 
     def add_log_message(self, message, tag=None):
         """Add message to log with optional color tag"""
@@ -188,8 +383,7 @@ class WebParserGUI:
                 return
 
             self.is_running = True
-            self.start_button.config(state='disabled')
-            self.stop_button.config(state='normal')
+            self.update_button_states()
             self.status_label.config(text="Starting...")
 
             self.add_log_message("\n=== Starting Web Scraper ===\n", "info")
@@ -213,8 +407,7 @@ class WebParserGUI:
         except Exception as e:
             self.add_log_message(f"Error starting scraper: {e}\n", "error")
             self.is_running = False
-            self.start_button.config(state='normal')
-            self.stop_button.config(state='disabled')
+            self.update_button_states()
             self.status_label.config(text="Error")
 
     def stop_scraper(self):
@@ -224,7 +417,6 @@ class WebParserGUI:
 
         try:
             self.add_log_message("\n=== Stopping Web Scraper ===\n", "warning")
-
             if self.process and self.process.poll() is None:
                 # Try graceful termination first
                 self.process.terminate()
@@ -238,10 +430,8 @@ class WebParserGUI:
                     self.add_log_message("Force stopped scraper process.\n", "warning")
 
             self.is_running = False
-            self.start_button.config(state='normal')
-            self.stop_button.config(state='disabled')
+            self.update_button_states()
             self.status_label.config(text="Stopped")
-
             self.add_log_message("Scraper stopped.\n", "info")
 
         except Exception as e:
@@ -287,8 +477,7 @@ class WebParserGUI:
                 elif msg_type == 'finished':
                     self.add_log_message(f"\n=== Scraper Finished (exit code: {msg}) ===\n", "info")
                     self.is_running = False
-                    self.start_button.config(state='normal')
-                    self.stop_button.config(state='disabled')
+                    self.update_button_states()
                     self.status_label.config(text="Finished")
 
                 elif msg_type == 'error':
@@ -335,6 +524,10 @@ class WebParserGUI:
             last_page = self.progress.get("last_page", 0)
             self.page_label.config(text=str(last_page))
 
+            # Update download path display
+            current_path = self.config.get("general", {}).get("download_path", "N/A")
+            self.path_label.config(text=current_path)
+
             # Color code progress bar based on usage
             if percentage > 90:
                 self.progress_bar.config(style='Red.Horizontal.TProgressbar')
@@ -371,14 +564,13 @@ def main():
     # Configure colored progress bar styles if available
     try:
         style.configure('Green.Horizontal.TProgressbar', background='green')
-        style.configure('Yellow.Horizontal.TProgressbar', background='orange')  
+        style.configure('Yellow.Horizontal.TProgressbar', background='orange')
         style.configure('Red.Horizontal.TProgressbar', background='red')
     except:
         pass
 
     try:
-        # Set icon and theme
-        root.iconbitmap(default="")  # Remove if no icon
+        # Set theme
         style.theme_use('clam')  # Modern theme
     except:
         pass
