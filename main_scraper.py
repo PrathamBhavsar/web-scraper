@@ -157,7 +157,10 @@ class VideoScraper:
 
     def run(self):
         """Main execution loop - smart resume with backwards-only scraping + FORCE STOP SUPPORT"""
+        
         try:
+            self.display_retry_statistics()
+
             # Initialize force stop flag for GUI integration
             if not hasattr(self, 'force_stop_requested'):
                 self.force_stop_requested = False
@@ -1011,6 +1014,30 @@ class VideoScraper:
     def generate_final_report(self, page_num, video_links, stats):
         """Legacy method - redirects to parallel version"""
         self.generate_final_report_parallel(page_num, video_links, stats)
+
+    def display_retry_statistics(self):
+        """Display current retry and failure statistics"""
+        try:
+            stats = self.progress_tracker.get_failure_stats()
+            
+            self.logger.info(f"\n{'='*60}")
+            self.logger.info(f"SMART RETRY SYSTEM STATISTICS")
+            self.logger.info(f"{'='*60}")
+            self.logger.info(f"Total videos with failures: {stats['total_failed_videos']}")
+            self.logger.info(f"Videos ready for retry: {stats['retry_ready_count']}")
+            
+            if stats['by_error_type']:
+                self.logger.info(f"Failure breakdown by type:")
+                for error_type, count in stats['by_error_type'].items():
+                    self.logger.info(f"  - {error_type}: {count} videos")
+            
+            if stats['retry_ready_count'] > 0:
+                self.logger.info(f"✅ {stats['retry_ready_count']} previously failed videos will be retried this run")
+            
+            self.logger.info(f"{'='*60}")
+            
+        except Exception as e:
+            self.logger.error(f"Error displaying retry statistics: {e}")
 
 
 # Usage
