@@ -1,43 +1,41 @@
 {
-    "general": {
-        "download_path": "C:\\scraper_downloads\\",
-        "max_storage_gb": 100,
-        "parallel_downloads": 3,
-        "delay_between_requests": 1000,
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    },
-    "download": {
-        "download_method": "hybrid",
-        "idm_path": "C:\\Program Files (x86)\\Internet Download Manager\\idman.exe",
-        "max_retries": 2,
-        "timeout_seconds": 60,
-        "chunk_size": 8192,
-        "verify_downloads": false
-    },
-    "scraping": {
-        "start_from_last_page": true,
-        "pages_per_batch": 10,
-        "wait_time_ms": 1000,
-        "max_concurrent_pages": 5,
-        "skip_existing_files": true
-    },
-    "storage": {
-        "create_subdirectories": true,
-        "compress_json": false,
-        "backup_progress": true,
-        "cleanup_incomplete": false
-    },
-    "logging": {
-        "log_level": "INFO",
-        "log_to_file": true,
-        "log_file_path": "scraper.log",
-        "max_log_size_mb": 50
-    },
-    "validation": {
-        "min_video_size_bytes": 1024,
-        "min_thumbnail_size_bytes": 100,
-        "required_json_fields": ["video_id"],
-        "max_validation_retries": 1,
-        "validation_delay_seconds": 1
-    }
+  "general": {
+    "base_url": "https://rule34video.com",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "download_path": "C:\\scraper_downloads\\",
+    "delay_between_requests": 1000,
+    "delay_between_pages": 5000,
+    "max_storage_gb": 1
+  },
+  "processing": {
+    "mode": "direct",
+    "use_parallel": true,
+    "parallel_batch_size": 5,
+    "max_concurrent_downloads": 8,
+    "max_concurrent_videos": 3,
+    "use_parallel_video_processing": true
+  },
+  "scraping": {
+    "wait_time_ms": 3000,
+    "max_retries": 3,
+    "enable_crawl4ai": true
+  },
+  "download": {
+    "download_method": "direct",
+    "max_retries": 5,
+    "chunk_size": 16384,
+    "connect_timeout_seconds": 30,
+    "read_timeout_seconds": 300
+  },
+  "validation": {
+    "required_json_fields": ["video_id", "title", "video_src"],
+    "min_video_size_bytes": 1024,
+    "min_thumbnail_size_bytes": 100,
+    "validation_delay_seconds": 2
+  },
+  "logging": {
+    "log_level": "INFO",
+    "log_to_file": true,
+    "log_file_path": "scraper.log"
+  }
 }
