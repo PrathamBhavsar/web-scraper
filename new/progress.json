@@ -1,8 +1,8 @@
 {
-  "last_video_id": "3046239",
-  "last_page": 9584,
-  "total_downloaded": 408,
-  "total_size_mb": 0,
+  "last_video_id": "video_9522_002",
+  "last_page": 9522,
+  "total_downloaded": 324,
+  "total_size_mb": 153.0,
   "downloaded_videos": [
     "12",
     "11",
@@ -321,7 +321,13 @@
     "3046346",
     "3046345",
     "3046348",
-    "3046239"
+    "3046239",
+    "video_9524_001",
+    "video_9524_002",
+    "video_9523_001",
+    "video_9523_002",
+    "video_9522_001",
+    "video_9522_002"
   ],
   "failed_videos": [],
   "video_failures": {}

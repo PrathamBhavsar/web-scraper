@@ -2,7 +2,7 @@
   "general": {
     "base_url": "https://rule34video.com",
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "download_path": "C:\\scraper_downloads\\",
+    "download_path": "E:\\scraper_downloads\\",
     "delay_between_requests": 1000,
     "delay_between_pages": 5000,
     "max_storage_gb": 940
