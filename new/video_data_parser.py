@@ -14,25 +14,108 @@ class OptimizedVideoDataParser:
         self.video_urls = []
         self.parsed_video_data = []
 
+    async def handle_age_verification(self, page):
+        """Handle age verification popup if it appears"""
+        try:
+            print("🔍 Checking for age verification popup...")
+
+            # Wait a bit for page to load completely
+            await page.wait_for_timeout(2000)
+
+            # Check if age popup is visible
+            popup_selector = '.popup.popup_access'
+            popup = await page.query_selector(popup_selector)
+
+            if popup:
+                # Check if popup is visible (not display: none)
+                is_visible = await page.evaluate('''(element) => {
+                    const style = window.getComputedStyle(element);
+                    return style.display !== 'none' && style.visibility !== 'hidden';
+                }''', popup)
+
+                if is_visible:
+                    print("⚠️  Age verification popup detected!")
+
+                    # Click the Continue button
+                    continue_button = await page.query_selector('input[name="continue"]')
+                    if continue_button:
+                        print("🖱️  Clicking Continue button...")
+                        await continue_button.click()
+
+                        # Wait for popup to disappear and content to load
+                        print("⏳ Waiting for content to load...")
+                        await page.wait_for_timeout(3000)
+
+                        # Wait for the main content to appear
+                        try:
+                            await page.wait_for_selector('#custom_list_videos_most_recent_videos_items', timeout=10000)
+                            print("✅ Age verification bypassed successfully!")
+                            return True
+                        except:
+                            print("⚠️  Content took longer to load, continuing anyway...")
+                            return True
+                    else:
+                        print("❌ Continue button not found!")
+                        return False
+                else:
+                    print("ℹ️  Age popup exists but is hidden")
+                    return True
+            else:
+                print("ℹ️  No age verification popup found")
+                return True
+
+        except Exception as e:
+            print(f"⚠️  Error handling age verification: {e}")
+            return True  # Continue anyway
+
     async def extract_video_urls(self):
         """Extract video URLs from main page"""
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
+
             try:
                 print(f"🚀 Loading main page: {self.base_url}")
                 await page.goto(self.base_url, wait_until='domcontentloaded')
+
+                # Handle age verification popup if present
+                await self.handle_age_verification(page)
+
+                # Now extract video URLs
                 await page.wait_for_timeout(3000)
 
                 # Extract using XPath
                 xpath = '//*[@id="custom_list_videos_most_recent_videos_items"]/div'
                 video_elements = await page.query_selector_all(f'xpath={xpath}')
-                print(f"📹 Found {len(video_elements)} video elements")
 
+                if len(video_elements) == 0:
+                    # Fallback: try different selectors
+                    print("⚠️  No videos found with primary selector, trying alternatives...")
+                    alternative_selectors = [
+                        '.video-item',
+                        '[class*="video"]',
+                        '.th.js-open-popup',
+                        'a[href*="/video"]'
+                    ]
+
+                    for selector in alternative_selectors:
+                        video_elements = await page.query_selector_all(selector)
+                        if video_elements:
+                            print(f"✅ Found {len(video_elements)} videos with selector: {selector}")
+                            break
+
+                print(f"📹 Found {len(video_elements)} video elements")
                 video_urls = []
+
                 for i, element in enumerate(video_elements):
                     try:
                         link_element = await element.query_selector('a.th.js-open-popup')
+                        if not link_element:
+                            # Try alternative link selectors
+                            link_element = await element.query_selector('a[href*="/video"]')
+                        if not link_element:
+                            link_element = await element.query_selector('a')
+
                         if link_element:
                             href = await link_element.get_attribute('href')
                             if href:
@@ -43,6 +126,7 @@ class OptimizedVideoDataParser:
 
                 self.video_urls = video_urls
                 print(f"🎯 Extracted {len(self.video_urls)} video URLs")
+
             except Exception as e:
                 print(f"❌ Error loading main page: {e}")
             finally:

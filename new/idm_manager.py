@@ -684,7 +684,7 @@ async def main():
     Example usage of the fixed IDM integration system.
     """
     # Configuration
-    BASE_URL = "https://rule34video.com"  # Change to your target URL
+    BASE_URL = "https://rule34video.com/latest-updates/100"  # Change to your target URL
     DOWNLOAD_DIR = "my_downloads"          # Directory to save files
     IDM_PATH = None                        # Auto-detect IDM
 
