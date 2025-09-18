@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 
 """
-Updated Progress Handler with Enhanced Progress Tracking
+Improved Progress Handler with Enhanced Monitoring
 
-This version integrates with the progress tracking IDM manager to ensure
-progress.json is updated accurately ONLY after downloads are completed.
+This version integrates with the improved IDM manager to provide better
+download completion detection and reduce failed videos.
 
-Features:
-- Uses ProgressTrackingVideoIDMProcessor for accurate progress updates
-- Updates progress.json ONLY after download verification
-- Monitors downloads folder for completion status
-- Provides manual progress sync capabilities
-- Enhanced logging and verification
+Key Improvements:
+- Uses dynamic completion monitoring instead of fixed wait times
+- Better integration with improved IDM manager
+- More robust progress tracking
+- Enhanced validation and error handling
 
 Author: AI Assistant
-Version: 3.0 - Enhanced progress tracking integration
+Version: 3.1 - Improved with dynamic monitoring
 """
 
 import json
@@ -23,20 +22,18 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 import asyncio
 import time
+
 from progress_tracking import EnhancedProgressTracker
 
-
-class UpdatedProgressHandler:
+class ImprovedProgressHandler:
     """
-    Updated Progress Handler that integrates with enhanced progress tracking.
-
-    This version ensures progress.json is updated accurately based on actual
-    download completion rather than just IDM queue additions.
+    Improved Progress Handler that uses dynamic completion monitoring
+    to reduce failed videos and improve download success rates.
     """
 
     def __init__(self, progress_file: str = "progress.json", downloads_dir: str = "downloads"):
         """
-        Initialize Updated Progress Handler.
+        Initialize Improved Progress Handler.
 
         Args:
             progress_file: Path to the progress.json file
@@ -49,11 +46,11 @@ class UpdatedProgressHandler:
         # Initialize enhanced progress tracker
         self.progress_tracker = EnhancedProgressTracker(str(progress_file), downloads_dir)
 
-        print(f"✅ Updated Progress Handler Initialized")
+        print(f"✅ Improved Progress Handler Initialized")
         print(f"📄 Progress file: {self.progress_file}")
         print(f"📁 Downloads directory: {self.downloads_dir}")
         print(f"🌐 Base URL: {self.base_url}")
-        print(f"📊 Progress tracking: Enhanced with download verification")
+        print(f"📊 Progress tracking: Enhanced with dynamic monitoring")
 
     def read_progress(self) -> Optional[Dict[str, Any]]:
         """
@@ -64,7 +61,6 @@ class UpdatedProgressHandler:
         """
         try:
             progress_data = self.progress_tracker.updater.read_current_progress()
-
             print("✅ Progress file loaded successfully")
             print(f"📄 Last processed page: {progress_data.get('last_page', 1000)}")
             print(f"📥 Total downloaded: {progress_data.get('total_downloaded', 0)}")
@@ -72,9 +68,8 @@ class UpdatedProgressHandler:
 
             downloaded_videos = progress_data.get('downloaded_videos', [])
             print(f"🎬 Downloaded video IDs: {len(downloaded_videos)}")
-
             if downloaded_videos:
-                print(f"   📝 Recent IDs: {downloaded_videos[:5]}...")
+                print(f" 📝 Recent IDs: {downloaded_videos[:5]}...")
 
             return progress_data
 
@@ -82,8 +77,8 @@ class UpdatedProgressHandler:
             print(f"❌ Error reading progress file: {e}")
             print("🔄 Starting from page 1000...")
             return {
-                "last_page": 1000, 
-                "total_size_mb": 0.0, 
+                "last_page": 1000,
+                "total_size_mb": 0.0,
                 "total_downloaded": 0,
                 "downloaded_videos": []
             }
@@ -130,7 +125,6 @@ class UpdatedProgressHandler:
         """
         # Get progress tracker summary
         tracker_summary = self.progress_tracker.get_progress_summary()
-
         progress_data = tracker_summary["progress_file_data"]
         download_stats = tracker_summary["download_folder_stats"]
         sync_needed = tracker_summary["sync_needed"]
@@ -164,7 +158,6 @@ class UpdatedProgressHandler:
 
         print("✅ Progress synchronization completed")
         print("-" * 60)
-
         return sync_results
 
     def verify_progress_accuracy(self) -> Dict[str, Any]:
@@ -180,15 +173,15 @@ class UpdatedProgressHandler:
         if verification_results["verification_passed"]:
             print("✅ Progress verification passed")
         else:
-            print("⚠️  Progress issues found and fixed")
+            print("⚠️ Progress issues found and fixed")
 
         return verification_results
 
-    def process_single_page(self, page: int, download_dir: str = "downloads", idm_path: str = None,
+    async def process_single_page(self, page: int, download_dir: str = "downloads", idm_path: str = None,
                            enable_duplicate_detection: bool = True, duplicate_check_limit: int = 100,
-                           wait_for_completion: bool = True, completion_wait_time: int = 30) -> Dict[str, Any]:
+                           use_dynamic_monitoring: bool = True) -> Dict[str, Any]:
         """
-        Process a single specific page with enhanced progress tracking.
+        Process a single specific page with improved monitoring.
 
         Args:
             page: Page number to process
@@ -196,13 +189,12 @@ class UpdatedProgressHandler:
             idm_path: Path to IDM executable
             enable_duplicate_detection: Enable duplicate detection for first page
             duplicate_check_limit: Max number of recent downloads to check against
-            wait_for_completion: Whether to wait and update progress after completion
-            completion_wait_time: Time to wait before checking completion
+            use_dynamic_monitoring: Whether to use dynamic completion monitoring
 
         Returns:
             Results from processing this specific page
         """
-        print(f"\n📄 Processing single page with enhanced progress tracking: {page}")
+        print(f"\n📄 Processing single page with improved monitoring: {page}")
         print("-" * 70)
 
         try:
@@ -210,55 +202,76 @@ class UpdatedProgressHandler:
             page_url = f"{self.base_url}{page}"
             print(f"🌐 Page URL: {page_url}")
 
-            # Import and initialize the Progress Tracking IDM processor
-            from idm_manager import ProgressTrackingVideoIDMProcessor
+            # Import and initialize the Improved IDM processor
+            from idm_manager import ImprovedIDMManager
 
-            processor = ProgressTrackingVideoIDMProcessor(
-                base_url=page_url,
-                download_dir=download_dir,
+            # Create IDM manager with improved settings
+            idm_manager = ImprovedIDMManager(
+                base_download_dir=download_dir,
                 idm_path=idm_path,
                 enable_duplicate_detection=enable_duplicate_detection,
                 duplicate_check_limit=duplicate_check_limit,
                 progress_file=str(self.progress_file)
             )
 
-            print(f"✅ Progress Tracking IDM Processor initialized for page {page}")
-            print(f"   🔍 Duplicate detection: {'Enabled' if enable_duplicate_detection else 'Disabled'}")
-            print(f"   📝 Check limit: {duplicate_check_limit} recent video IDs")
-            print(f"   ⏳ Wait for completion: {'Yes' if wait_for_completion else 'No'}")
-            print(f"   🕒 Completion wait time: {completion_wait_time} seconds")
+            print(f"✅ Improved IDM Manager initialized for page {page}")
+            print(f" 🔍 Duplicate detection: {'Enabled' if enable_duplicate_detection else 'Disabled'}")
+            print(f" 📝 Check limit: {duplicate_check_limit} recent video IDs")
+            print(f" 🔄 Dynamic monitoring: {'Enabled' if use_dynamic_monitoring else 'Disabled'}")
 
-            # Process this specific page
-            print(f"\n🚀 Starting enhanced processing workflow for page {page}...")
-            results = asyncio.run(processor.process_all_videos(
-                wait_for_completion=wait_for_completion,
-                completion_wait_time=completion_wait_time
-            ))
+            # Import video parser
+            from video_data_parser import OptimizedVideoDataParser
+            parser = OptimizedVideoDataParser(page_url)
+
+            # Process videos with improved workflow
+            print(f"\n🚀 Starting improved processing workflow for page {page}...")
+
+            # Step 1: Extract video URLs
+            video_urls = await parser.extract_video_urls() if asyncio.iscoroutinefunction(parser.extract_video_urls) else parser.extract_video_urls()
+
+            if not video_urls:
+                return {"success": False, "error": "No video URLs found"}
+
+            # Step 2: Parse video metadata
+            videos_data = await parser.parse_all_videos() if asyncio.iscoroutinefunction(parser.parse_all_videos) else parser.parse_all_videos()
+
+            if not videos_data:
+                return {"success": False, "error": "No video metadata could be parsed"}
+
+            # Step 3: Process with improved IDM manager
+            results = idm_manager.process_all_videos(
+                videos_data,
+                start_queue=True,
+                current_page=page,
+                use_dynamic_monitoring=use_dynamic_monitoring
+            )
 
             print(f"✅ Page {page} processing completed")
 
             # Enhanced result reporting
             if results.get("success"):
-                idm_results = results.get("idm_results", {})
-                duplicates_filtered = idm_results.get("videos_filtered_by_duplicates", 0)
-                videos_processed = idm_results.get("videos_passed_duplicate_check", 0)
-                progress_updated = idm_results.get("progress_update_results") is not None
-
                 print(f"📊 Page {page} Results:")
-                print(f"   🎬 Videos found: {results.get('videos_parsed', 0)}")
-                print(f"   ✅ Videos processed: {videos_processed}")
-                print(f"   🚫 Duplicates filtered: {duplicates_filtered}")
-                print(f"   📥 IDM queue additions: {idm_results.get('successful_additions', 0)}")
-                print(f"   📊 Progress updated: {'Yes' if progress_updated else 'No'}")
+                print(f" 🎬 Videos found: {len(videos_data)}")
+                print(f" ✅ Videos processed: {results.get('videos_passed_duplicate_check', 0)}")
+                print(f" 🚫 Duplicates filtered: {results.get('videos_filtered_by_duplicates', 0)}")
+                print(f" 📥 IDM queue additions: {results.get('successful_additions', 0)}")
+                print(f" 🔄 Dynamic monitoring used: {results.get('dynamic_monitoring_used', False)}")
+
+                # Show monitoring results if available
+                monitoring_results = results.get("monitoring_results")
+                if monitoring_results:
+                    print(f" ⏱️  Monitoring time: {monitoring_results['monitoring_time_minutes']:.1f} minutes")
+                    print(f" 📈 Final completion rate: {monitoring_results['completion_rate']:.1f}%")
 
                 # Show progress update results if available
-                progress_update_results = idm_results.get("progress_update_results")
+                progress_update_results = results.get("progress_update_results")
                 if progress_update_results:
                     verification = progress_update_results.get("verification_results", {})
-                    print(f"   ✅ Verification passed: {verification.get('verification_passed', False)}")
+                    print(f" ✅ Verification passed: {verification.get('verification_passed', False)}")
+
                     updated_progress = progress_update_results.get("updated_progress", {})
-                    print(f"   💾 New total size: {updated_progress.get('total_size_mb', 0):.2f} MB")
-                    print(f"   🎬 New video count: {updated_progress.get('total_downloaded', 0)}")
+                    print(f" 💾 New total size: {updated_progress.get('total_size_mb', 0):.2f} MB")
+                    print(f" 🎬 New video count: {updated_progress.get('total_downloaded', 0)}")
 
             return {
                 "success": True,
@@ -266,19 +279,19 @@ class UpdatedProgressHandler:
                 "url_used": page_url,
                 "processing_results": results,
                 "duplicate_detection_applied": enable_duplicate_detection,
-                "progress_tracking_enabled": True,
-                "wait_for_completion": wait_for_completion
+                "dynamic_monitoring_used": use_dynamic_monitoring
             }
 
         except ImportError as e:
-            print(f"❌ Could not import Progress Tracking IDM manager: {e}")
-            print("💡 Make sure idm_manager.py is in the same directory")
+            print(f"❌ Could not import required modules: {e}")
+            print("💡 Make sure all improved files are in the same directory")
             return {
                 "success": False,
                 "error": f"Import error: {e}",
                 "page_processed": page,
                 "url_used": f"{self.base_url}{page}"
             }
+
         except Exception as e:
             print(f"❌ Error processing page {page}: {e}")
             return {
@@ -288,27 +301,107 @@ class UpdatedProgressHandler:
                 "url_used": f"{self.base_url}{page}"
             }
 
+    async def process_single_page_async(self, page: int, download_dir: str = "downloads", idm_path: str = None,
+                                       enable_duplicate_detection: bool = True, duplicate_check_limit: int = 100,
+                                       use_dynamic_monitoring: bool = True) -> Dict[str, Any]:
+        """
+        Async version of process_single_page for better integration with async video parser.
+
+        Args:
+            page: Page number to process
+            download_dir: Directory for downloads
+            idm_path: Path to IDM executable
+            enable_duplicate_detection: Enable duplicate detection for first page
+            duplicate_check_limit: Max number of recent downloads to check against
+            use_dynamic_monitoring: Whether to use dynamic completion monitoring
+
+        Returns:
+            Results from processing this specific page
+        """
+        print(f"\n📄 Processing single page (async) with improved monitoring: {page}")
+        print("-" * 70)
+
+        try:
+            # Construct URL for specific page
+            page_url = f"{self.base_url}{page}"
+            print(f"🌐 Page URL: {page_url}")
+
+            # Import and initialize the Improved IDM processor
+            from idm_manager import ImprovedIDMManager
+            from video_data_parser import OptimizedVideoDataParser
+
+            # Create IDM manager with improved settings
+            idm_manager = ImprovedIDMManager(
+                base_download_dir=download_dir,
+                idm_path=idm_path,
+                enable_duplicate_detection=enable_duplicate_detection,
+                duplicate_check_limit=duplicate_check_limit,
+                progress_file=str(self.progress_file)
+            )
+
+            parser = OptimizedVideoDataParser(page_url)
+
+            print(f"✅ Improved components initialized for page {page}")
+
+            # Process videos with improved workflow (async)
+            print(f"\n🚀 Starting async improved processing workflow for page {page}...")
+
+            # Step 1: Extract video URLs
+            video_urls = await parser.extract_video_urls()
+            if not video_urls:
+                return {"success": False, "error": "No video URLs found"}
+
+            # Step 2: Parse video metadata
+            videos_data = await parser.parse_all_videos()
+            if not videos_data:
+                return {"success": False, "error": "No video metadata could be parsed"}
+
+            # Step 3: Process with improved IDM manager
+            results = idm_manager.process_all_videos(
+                videos_data,
+                start_queue=True,
+                current_page=page,
+                use_dynamic_monitoring=use_dynamic_monitoring
+            )
+
+            print(f"✅ Page {page} async processing completed")
+
+            return {
+                "success": True,
+                "page_processed": page,
+                "url_used": page_url,
+                "processing_results": results,
+                "duplicate_detection_applied": enable_duplicate_detection,
+                "dynamic_monitoring_used": use_dynamic_monitoring
+            }
+
+        except Exception as e:
+            print(f"❌ Error in async processing for page {page}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "page_processed": page,
+                "url_used": f"{self.base_url}{page}"
+            }
+
     def start_idm_process(self, download_dir: str = "downloads", idm_path: str = None,
                          enable_duplicate_detection: bool = True, duplicate_check_limit: int = 100,
-                         wait_for_completion: bool = True, completion_wait_time: int = 30) -> Dict[str, Any]:
+                         use_dynamic_monitoring: bool = True) -> Dict[str, Any]:
         """
-        Start the IDM manager process with enhanced progress tracking.
-
-        This method processes the current page from progress.json with progress tracking.
+        Start the improved IDM manager process with dynamic monitoring.
 
         Args:
             download_dir: Directory for downloads
             idm_path: Path to IDM executable
             enable_duplicate_detection: Enable duplicate detection for first page
             duplicate_check_limit: Max number of recent downloads to check against
-            wait_for_completion: Whether to wait and update progress after completion
-            completion_wait_time: Time to wait before checking completion
+            use_dynamic_monitoring: Whether to use dynamic completion monitoring
 
         Returns:
             Results from the IDM processing
         """
         print("=" * 80)
-        print("🚀 STARTING ENHANCED IDM PROCESS WITH PROGRESS TRACKING")
+        print("🚀 STARTING IMPROVED IDM PROCESS WITH DYNAMIC MONITORING")
         print("=" * 80)
 
         # Get the current page from progress
@@ -317,39 +410,38 @@ class UpdatedProgressHandler:
 
         # Display comprehensive progress summary
         print("📊 COMPREHENSIVE PROGRESS SUMMARY:")
-        print(f"   📄 Current page: {summary['last_page']}")
-        print(f"   📥 Reported downloaded: {summary['total_downloaded']}")
-        print(f"   📁 Actual completed folders: {summary['actual_completed_folders']}")
-        print(f"   💾 Reported size: {summary['total_size_mb']:.2f} MB")
-        print(f"   💾 Actual folder size: {summary['actual_total_size_mb']:.2f} MB")
-        print(f"   🎬 Downloaded videos: {summary['downloaded_videos']}")
-        print(f"   ❌ Failed videos: {summary['failed_videos']}")
-        print(f"   📈 Completion rate: {summary['completion_rate']:.1f}%")
-        print(f"   🕒 Last updated: {summary['last_updated']}")
-        print(f"   ⚠️  Sync needed: {'Yes' if summary['sync_needed'] else 'No'}")
-        print(f"   🔍 Duplicate detection: {'Enabled' if enable_duplicate_detection else 'Disabled'}")
-        print(f"   📊 Progress tracking: Enhanced with download verification")
+        print(f" 📄 Current page: {summary['last_page']}")
+        print(f" 📥 Reported downloaded: {summary['total_downloaded']}")
+        print(f" 📁 Actual completed folders: {summary['actual_completed_folders']}")
+        print(f" 💾 Reported size: {summary['total_size_mb']:.2f} MB")
+        print(f" 💾 Actual folder size: {summary['actual_total_size_mb']:.2f} MB")
+        print(f" 🎬 Downloaded videos: {summary['downloaded_videos']}")
+        print(f" ❌ Failed videos: {summary['failed_videos']}")
+        print(f" 📈 Completion rate: {summary['completion_rate']:.1f}%")
+        print(f" 🕒 Last updated: {summary['last_updated']}")
+        print(f" ⚠️ Sync needed: {'Yes' if summary['sync_needed'] else 'No'}")
+        print(f" 🔍 Duplicate detection: {'Enabled' if enable_duplicate_detection else 'Disabled'}")
+        print(f" 🔄 Dynamic monitoring: {'Enabled' if use_dynamic_monitoring else 'Disabled'}")
         print("=" * 80)
 
         # Sync progress if needed
         if summary['sync_needed']:
-            print("⚠️  Progress out of sync - performing automatic sync...")
+            print("⚠️ Progress out of sync - performing automatic sync...")
             self.sync_progress_with_downloads()
             print("✅ Progress synchronized")
 
-        # Process the current page with enhanced progress tracking
-        results = self.process_single_page(
-            current_page, 
-            download_dir, 
+        # Process the current page with improved monitoring
+        results = asyncio.run(self.process_single_page_async(
+            current_page,
+            download_dir,
             idm_path,
             enable_duplicate_detection,
             duplicate_check_limit,
-            wait_for_completion,
-            completion_wait_time
-        )
+            use_dynamic_monitoring
+        ))
 
         print("=" * 80)
-        print("✅ ENHANCED IDM PROCESS WITH PROGRESS TRACKING COMPLETED")
+        print("✅ IMPROVED IDM PROCESS WITH DYNAMIC MONITORING COMPLETED")
         print("=" * 80)
 
         return results
@@ -366,30 +458,29 @@ class UpdatedProgressHandler:
         """
         return self.progress_tracker.updater.update_page_progress(new_page)
 
-
 def main():
     """
-    Main function to demonstrate usage of Updated Progress Handler.
+    Main function to demonstrate usage of Improved Progress Handler.
     """
-    print("🎬 Updated Rule34Video Progress Handler with Enhanced Progress Tracking")
+    print("🎬 Improved Rule34Video Progress Handler with Dynamic Monitoring")
     print("=" * 80)
-    print("🆕 ENHANCED FEATURES:")
-    print("   - Updates progress.json ONLY after download verification")
-    print("   - Monitors downloads folder for actual completion")
-    print("   - Provides progress synchronization and verification")
-    print("   - Enhanced duplicate detection with first page only")
-    print("   - Real-time folder size calculation")
-    print("   - Automatic progress fixing and correction")
+    print("🆕 IMPROVED FEATURES:")
+    print(" - Dynamic completion monitoring (waits until downloads actually finish)")
+    print(" - Reduced failed videos through better validation")
+    print(" - Adaptive wait times based on download progress")
+    print(" - Real-time IDM queue status monitoring")
+    print(" - Enhanced folder validation with stability checks")
+    print(" - Progress updates ONLY after verified completion")
     print("=" * 80)
 
     # Initialize progress handler
-    handler = UpdatedProgressHandler()
+    handler = ImprovedProgressHandler()
 
     # Show comprehensive progress status
     print("\n📊 Comprehensive Progress Status:")
     summary = handler.get_progress_summary()
     for key, value in summary.items():
-        print(f"   {key}: {value}")
+        print(f" {key}: {value}")
 
     # Get the URL that will be used
     url = handler.construct_url()
@@ -397,41 +488,36 @@ def main():
 
     # Check if sync is needed
     if summary["sync_needed"]:
-        print("\n⚠️  Progress synchronization recommended!")
+        print("\n⚠️ Progress synchronization recommended!")
         choice = input("\n🤔 Synchronize progress with downloads? (y/n): ").strip().lower()
-
         if choice in ['y', 'yes']:
             handler.sync_progress_with_downloads()
         else:
             print("📝 Synchronization skipped")
 
     print("\n💡 Usage examples:")
-    print("   # Process current page with progress tracking:")
-    print("   handler.start_idm_process(wait_for_completion=True)")
-    print("   ")
-    print("   # Process specific page with progress tracking:")
-    print("   handler.process_single_page(997, wait_for_completion=True)")
-    print("   ")
-    print("   # Sync progress manually:")
-    print("   handler.sync_progress_with_downloads()")
-    print("   ")
-    print("   # Verify progress accuracy:")
-    print("   handler.verify_progress_accuracy()")
+    print(" # Process current page with dynamic monitoring:")
+    print(" handler.start_idm_process(use_dynamic_monitoring=True)")
+    print(" ")
+    print(" # Process specific page with dynamic monitoring:")
+    print(" asyncio.run(handler.process_single_page_async(997, use_dynamic_monitoring=True))")
+    print(" ")
+    print(" # Sync progress manually:")
+    print(" handler.sync_progress_with_downloads()")
 
-    print("\n🔧 Enhanced Progress Tracking Behavior:")
-    print("   - First page: Duplicate detection + progress tracking")
-    print("   - Subsequent pages: Progress tracking only")
-    print("   - Progress updated ONLY after download verification")
-    print("   - Automatic folder monitoring and size calculation")
-    print("   - Verification and correction of progress discrepancies")
+    print("\n🔧 Improved Dynamic Monitoring Behavior:")
+    print(" - Waits minimum 2 minutes before starting checks")
+    print(" - Monitors download progress every 15 seconds")
+    print(" - Waits for downloads to be stable for 60 seconds")
+    print(" - Maximum wait time: 30 minutes")
+    print(" - Updates progress ONLY after verified completion")
 
     print("\n📋 Dependencies:")
-    print("   ✅ idm_manager.py (progress tracking IDM integration)")
-    print("   ✅ progress_tracking.py (progress tracking system)")
-    print("   ✅ duplicate_detection.py (duplicate detection system)")
-    print("   ✅ video_data_parser.py (video parsing)")
-    print("   ✅ progress.json (progress tracking with verification)")
-
+    print(" ✅ idm_manager.py (dynamic monitoring IDM integration)")
+    print(" ✅ progress_tracking.py (progress tracking system)")
+    print(" ✅ duplicate_detection.py (duplicate detection system)")
+    print(" ✅ video_data_parser.py (video parsing)")
+    print(" ✅ progress.json (progress tracking with verification)")
 
 if __name__ == "__main__":
     main()

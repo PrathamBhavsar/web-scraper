@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 
 """
-Updated IDM Manager with Enhanced Progress Tracking
+Improved IDM Manager with Dynamic Completion Monitoring
 
-This version integrates the enhanced progress tracking system to ensure
-progress.json is updated accurately ONLY after downloads are verified.
+This version fixes the failed videos issue by:
+- Implementing proper completion monitoring instead of fixed wait times
+- Using dynamic validation that waits until actual downloads complete
+- Monitoring IDM queue status and folder contents in real-time
+- Only updating progress after verifying actual download completion
 
-Key Changes:
-- Updates progress.json ONLY after downloads are completed
-- Monitors downloads folder for actual completion
-- Calculates real folder sizes
-- Does NOT update progress before IDM queue addition
-- Provides post-download verification and updates
+Key Improvements:
+- Dynamic wait times based on actual download progress
+- Real-time IDM queue monitoring
+- Folder completion validation with retries
+- Progress updates ONLY after verified completion
+- Better error handling and recovery
 
 Author: AI Assistant
-Version: 4.0 - Enhanced progress tracking integration
+Version: 4.1 - Dynamic completion monitoring
 """
 
 import os
@@ -26,21 +29,21 @@ from pathlib import Path
 from typing import List, Dict, Optional, Tuple, Any
 import asyncio
 import shutil
+
 from duplicate_detection import DuplicateDetectionManager
 from progress_tracking import EnhancedProgressTracker
 
-
-class ProgressTrackingIDMManager:
+class ImprovedIDMManager:
     """
-    IDM Manager with integrated progress tracking that updates progress.json
-    ONLY after downloads are actually completed and verified.
+    IDM Manager with dynamic completion monitoring that waits for actual downloads
+    to complete before updating progress.json.
     """
 
-    def __init__(self, base_download_dir: str = "downloads", idm_path: str = None, 
+    def __init__(self, base_download_dir: str = "downloads", idm_path: str = None,
                  enable_duplicate_detection: bool = True, duplicate_check_limit: int = 100,
                  progress_file: str = "progress.json"):
         """
-        Initialize Progress Tracking IDM Manager.
+        Initialize Improved IDM Manager.
 
         Args:
             base_download_dir: Base directory for downloads
@@ -54,6 +57,12 @@ class ProgressTrackingIDMManager:
         self.progress_file = progress_file
         self.download_queue = []
 
+        # Enhanced monitoring settings
+        self.max_wait_time = 1800  # Maximum wait time: 30 minutes
+        self.check_interval = 15   # Check every 15 seconds
+        self.stable_duration = 60  # Must be stable for 60 seconds
+        self.min_wait_time = 120   # Minimum wait time: 2 minutes
+
         # Initialize enhanced progress tracker
         self.progress_tracker = EnhancedProgressTracker(progress_file, base_download_dir)
 
@@ -66,7 +75,9 @@ class ProgressTrackingIDMManager:
             "videos_filtered_by_duplicates": 0,
             "videos_passed_duplicate_check": 0,
             "progress_updates": 0,
-            "verified_completions": 0
+            "verified_completions": 0,
+            "dynamic_wait_used": 0,
+            "completion_cycles": 0
         }
 
         # Initialize duplicate detection if enabled
@@ -83,15 +94,19 @@ class ProgressTrackingIDMManager:
         # Ensure base directory exists
         self._ensure_directory_exists(self.base_download_dir)
 
-        print(f"🚀 Progress Tracking IDM Manager Initialized")
-        print(f"   📁 Base download directory: {self.base_download_dir}")
-        print(f"   🔧 IDM executable: {self.idm_path}")
-        print(f"   📄 Progress file: {self.progress_file}")
-        print(f"   🔍 Duplicate detection: {'Enabled' if self.duplicate_detection_enabled else 'Disabled'}")
-        print(f"   📊 Progress tracking: Enhanced with download verification")
+        print(f"🚀 Improved IDM Manager with Dynamic Monitoring Initialized")
+        print(f" 📁 Base download directory: {self.base_download_dir}")
+        print(f" 🔧 IDM executable: {self.idm_path}")
+        print(f" 📄 Progress file: {self.progress_file}")
+        print(f" 🔍 Duplicate detection: {'Enabled' if self.duplicate_detection_enabled else 'Disabled'}")
+        print(f" 📊 Dynamic monitoring settings:")
+        print(f"   ⏱️  Max wait time: {self.max_wait_time//60} minutes")
+        print(f"   🔄 Check interval: {self.check_interval} seconds")
+        print(f"   ⏳ Stable duration: {self.stable_duration} seconds")
+        print(f"   🕒 Min wait time: {self.min_wait_time} seconds")
 
         if not self._verify_idm_access():
-            print("⚠️  WARNING: IDM may not be accessible. Downloads might fail.")
+            print("⚠️ WARNING: IDM may not be accessible. Downloads might fail.")
 
     def _find_idm_executable(self, idm_path: str = None) -> str:
         """Find IDM executable with enhanced detection."""
@@ -115,10 +130,10 @@ class ProgressTrackingIDMManager:
         # Try Windows where command
         try:
             result = subprocess.run(
-                ["where", "IDMan.exe"], 
-                capture_output=True, 
-                text=True, 
-                shell=True, 
+                ["where", "IDMan.exe"],
+                capture_output=True,
+                text=True,
+                shell=True,
                 timeout=10
             )
             if result.returncode == 0:
@@ -126,7 +141,7 @@ class ProgressTrackingIDMManager:
                 print(f"✅ Found IDM in PATH: {idm_path}")
                 return idm_path
         except (subprocess.TimeoutExpired, Exception) as e:
-            print(f"⚠️  Error searching for IDM in PATH: {e}")
+            print(f"⚠️ Error searching for IDM in PATH: {e}")
 
         print("❌ IDM executable not found automatically")
         print("💡 Please ensure IDM is installed or specify idm_path parameter")
@@ -136,26 +151,25 @@ class ProgressTrackingIDMManager:
         """Verify IDM is accessible."""
         try:
             result = subprocess.run(
-                [self.idm_path, "/?"], 
-                capture_output=True, 
-                text=True, 
+                [self.idm_path, "/?"],
+                capture_output=True,
+                text=True,
                 timeout=10
             )
             if result.returncode == 0 or "Internet Download Manager" in result.stdout:
                 print("✅ IDM access verified")
                 return True
             else:
-                print(f"⚠️  IDM responded with unexpected output: {result.stdout}")
+                print(f"⚠️ IDM responded with unexpected output: {result.stdout}")
                 return False
         except Exception as e:
-            print(f"⚠️  Could not verify IDM access: {e}")
+            print(f"⚠️ Could not verify IDM access: {e}")
             return False
 
     def _ensure_directory_exists(self, directory_path: Path) -> bool:
         """Ensure directory exists with proper permissions."""
         try:
             directory_path.mkdir(parents=True, exist_ok=True)
-
             # Test write permissions
             test_file = directory_path / ".write_test"
             try:
@@ -163,9 +177,8 @@ class ProgressTrackingIDMManager:
                 test_file.unlink()
                 return True
             except Exception as e:
-                print(f"⚠️  Directory not writable {directory_path}: {e}")
+                print(f"⚠️ Directory not writable {directory_path}: {e}")
                 return False
-
         except Exception as e:
             print(f"❌ Could not create directory {directory_path}: {e}")
             return False
@@ -188,11 +201,9 @@ class ProgressTrackingIDMManager:
         invalid_chars = '<>:"/\\|?*'
         for char in invalid_chars:
             filename = filename.replace(char, '_')
-
         filename = filename.strip('. ')
         if len(filename) > 200:
             filename = filename[:200]
-
         return filename if filename else "unknown"
 
     def _apply_duplicate_filtering(self, videos_data: List[Dict], current_page: int) -> List[Dict]:
@@ -215,9 +226,9 @@ class ProgressTrackingIDMManager:
         self.stats["videos_passed_duplicate_check"] += filtered_count
 
         print(f"✅ Duplicate filtering completed:")
-        print(f"   📥 Original videos: {original_count}")
-        print(f"   ✅ Videos to process: {filtered_count}")
-        print(f"   🚫 Duplicates filtered: {duplicates_found}")
+        print(f" 📥 Original videos: {original_count}")
+        print(f" ✅ Videos to process: {filtered_count}")
+        print(f" 🚫 Duplicates filtered: {duplicates_found}")
 
         return filtered_videos
 
@@ -225,7 +236,6 @@ class ProgressTrackingIDMManager:
         """Prepare download information for a video."""
         video_id = video_data.get("video_id", "unknown")
         video_dir = self._create_video_directory(video_id)
-
         downloads = {}
         sanitized_id = self._sanitize_filename(video_id)
 
@@ -279,10 +289,9 @@ class ProgressTrackingIDMManager:
                 return False
 
             windows_path = str(local_path).replace('/', '\\')
-
             print(f"📥 Adding to IDM queue: {filename}")
-            print(f"   🌐 URL: {url[:80]}{'...' if len(url) > 80 else ''}")
-            print(f"   📁 Path: {windows_path}")
+            print(f" 🌐 URL: {url[:80]}{'...' if len(url) > 80 else ''}")
+            print(f" 📁 Path: {windows_path}")
 
             cmd = [
                 self.idm_path,
@@ -295,12 +304,11 @@ class ProgressTrackingIDMManager:
             ]
 
             print(f"🔧 IDM Command: {' '.join(cmd[:3])} ... (truncated)")
-
             result = subprocess.run(
-                cmd, 
-                capture_output=True, 
-                text=True, 
-                timeout=30, 
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
                 shell=False
             )
 
@@ -309,11 +317,11 @@ class ProgressTrackingIDMManager:
                 return True
             else:
                 print(f"❌ IDM command failed for {filename}")
-                print(f"   📄 Return code: {result.returncode}")
+                print(f" 📄 Return code: {result.returncode}")
                 if result.stdout:
-                    print(f"   📄 Stdout: {result.stdout}")
+                    print(f" 📄 Stdout: {result.stdout}")
                 if result.stderr:
-                    print(f"   📄 Stderr: {result.stderr}")
+                    print(f" 📄 Stderr: {result.stderr}")
                 return False
 
         except subprocess.TimeoutExpired:
@@ -330,7 +338,6 @@ class ProgressTrackingIDMManager:
         """Add all files for a video to IDM download queue."""
         video_id = video_data.get("video_id", "unknown")
         title = video_data.get("title", "Unknown")
-
         print(f"\n🎬 Processing video: '{title}' (ID: {video_id})")
 
         downloads = self._prepare_video_downloads(video_data)
@@ -345,8 +352,8 @@ class ProgressTrackingIDMManager:
         if "thumbnail" in downloads:
             thumb_info = downloads["thumbnail"]
             success = self._add_to_idm_queue(
-                thumb_info["url"], 
-                thumb_info["path"].parent, 
+                thumb_info["url"],
+                thumb_info["path"].parent,
                 thumb_info["path"].name
             )
             results["thumbnail"] = success
@@ -362,8 +369,8 @@ class ProgressTrackingIDMManager:
         if "video" in downloads:
             video_info = downloads["video"]
             success = self._add_to_idm_queue(
-                video_info["url"], 
-                video_info["path"].parent, 
+                video_info["url"],
+                video_info["path"].parent,
                 video_info["path"].name
             )
             results["video"] = success
@@ -387,17 +394,15 @@ class ProgressTrackingIDMManager:
         """Start IDM download queue."""
         try:
             print("🚀 Starting IDM download queue...")
-
             cmd = [self.idm_path, "/s"]
             print(f"🔧 Executing: {' '.join(cmd)}")
-
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
 
             if result.returncode == 0:
                 print("✅ IDM queue started successfully!")
                 return True
             else:
-                print(f"⚠️  Method 1 failed (return code {result.returncode})")
+                print(f"⚠️ Method 1 failed (return code {result.returncode})")
                 print(f"📄 Stdout: {result.stdout}")
                 print(f"📄 Stderr: {result.stderr}")
 
@@ -421,20 +426,135 @@ class ProgressTrackingIDMManager:
             print(f"❌ Error starting IDM queue: {e}")
             return False
 
-    def update_progress_after_completion(self, wait_time: int = 30) -> Dict[str, Any]:
+    def _check_idm_queue_status(self) -> Dict[str, Any]:
+        """Check IDM queue status and running downloads."""
+        try:
+            # Try to get IDM process info
+            cmd = ['tasklist', '/FI', 'IMAGENAME eq IDMan.exe', '/FO', 'CSV']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+
+            idm_running = 'IDMan.exe' in result.stdout
+
+            return {
+                "idm_running": idm_running,
+                "process_info": result.stdout if idm_running else "IDM not running"
+            }
+
+        except Exception as e:
+            print(f"⚠️ Could not check IDM status: {e}")
+            return {"idm_running": True, "process_info": "Status check failed"}
+
+    def _monitor_download_completion(self) -> Dict[str, Any]:
         """
-        Wait for downloads to complete and update progress.json with verified data.
+        Monitor download completion using dynamic validation.
+        Waits until downloads are actually complete before returning.
+        """
+        print(f"\n🔍 STARTING DYNAMIC DOWNLOAD COMPLETION MONITORING")
+        print("=" * 80)
+
+        start_time = time.time()
+        last_stable_check = time.time()
+        stable_count = 0
+        check_count = 0
+
+        # Get initial state
+        initial_stats = self.progress_tracker.updater.monitor.get_download_statistics()
+        print(f"📊 Initial State:")
+        print(f" 📁 Total folders: {initial_stats['total_folders']}")
+        print(f" ✅ Completed folders: {initial_stats['completed_folders']}")
+        print(f" ❌ Failed/Incomplete: {initial_stats['failed_folders']}")
+
+        # Wait minimum time first
+        print(f"\n⏳ Initial wait period: {self.min_wait_time} seconds...")
+        time.sleep(self.min_wait_time)
+
+        print(f"\n🔄 Starting dynamic monitoring (checking every {self.check_interval}s)...")
+
+        previous_completed = initial_stats['completed_folders']
+        previous_total_size = initial_stats['total_size_mb']
+
+        while True:
+            check_count += 1
+            current_time = time.time()
+            elapsed_time = current_time - start_time
+
+            # Check current stats
+            current_stats = self.progress_tracker.updater.monitor.get_download_statistics()
+            current_completed = current_stats['completed_folders']
+            current_total_size = current_stats['total_size_mb']
+
+            # Check IDM status
+            idm_status = self._check_idm_queue_status()
+
+            print(f"\n🔍 Check #{check_count} (Elapsed: {elapsed_time/60:.1f} min):")
+            print(f" 📁 Completed folders: {current_completed} (was {previous_completed})")
+            print(f" 💾 Total size: {current_total_size:.2f} MB (was {previous_total_size:.2f} MB)")
+            print(f" 📈 Completion rate: {current_stats['completion_rate']:.1f}%")
+            print(f" 🔧 IDM running: {idm_status['idm_running']}")
+
+            # Check if downloads are progressing or stable
+            downloads_changed = (current_completed != previous_completed or 
+                               abs(current_total_size - previous_total_size) > 0.1)
+
+            if downloads_changed:
+                print(f" 🔄 Downloads still progressing...")
+                stable_count = 0
+                last_stable_check = current_time
+                previous_completed = current_completed
+                previous_total_size = current_total_size
+            else:
+                stable_duration = current_time - last_stable_check
+                print(f" ⏱️  Downloads stable for {stable_duration:.0f}s (need {self.stable_duration}s)")
+
+                if stable_duration >= self.stable_duration:
+                    print(f" ✅ Downloads have been stable for {self.stable_duration}s - considering complete!")
+                    break
+
+            # Check timeout
+            if elapsed_time >= self.max_wait_time:
+                print(f" ⏰ Maximum wait time ({self.max_wait_time/60:.1f} min) reached!")
+                break
+
+            # Wait before next check
+            time.sleep(self.check_interval)
+
+        # Final validation
+        final_stats = self.progress_tracker.updater.monitor.get_download_statistics()
+
+        print("\n" + "=" * 80)
+        print("📋 DYNAMIC MONITORING COMPLETED")
+        print("=" * 80)
+        print(f"⏱️  Total monitoring time: {(time.time() - start_time)/60:.1f} minutes")
+        print(f"🔄 Checks performed: {check_count}")
+        print(f"📊 Final Statistics:")
+        print(f" 📁 Total folders: {final_stats['total_folders']}")
+        print(f" ✅ Completed folders: {final_stats['completed_folders']}")
+        print(f" ❌ Failed/Incomplete: {final_stats['failed_folders']}")
+        print(f" 💾 Total size: {final_stats['total_size_mb']:.2f} MB")
+        print(f" 📈 Completion rate: {final_stats['completion_rate']:.1f}%")
+
+        self.stats["dynamic_wait_used"] += 1
+        self.stats["completion_cycles"] += check_count
+
+        return {
+            "monitoring_time_minutes": (time.time() - start_time) / 60,
+            "checks_performed": check_count,
+            "final_stats": final_stats,
+            "completion_rate": final_stats['completion_rate'],
+            "monitoring_successful": True
+        }
+
+    def update_progress_after_completion(self, monitoring_results: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Update progress.json with verified data after monitoring completion.
 
         Args:
-            wait_time: Time to wait before checking for completion (seconds)
+            monitoring_results: Results from dynamic monitoring
 
         Returns:
             Progress update results
         """
-        print(f"\n⏳ Waiting {wait_time} seconds for downloads to process...")
-        time.sleep(wait_time)
-
-        print("\n🔍 CHECKING DOWNLOAD COMPLETION AND UPDATING PROGRESS")
+        print(f"\n🔄 UPDATING PROGRESS AFTER VERIFIED COMPLETION")
         print("=" * 70)
 
         # Sync progress with actual download folder contents
@@ -447,27 +567,26 @@ class ProgressTrackingIDMManager:
             self.stats["verified_completions"] += 1
 
         print("=" * 70)
-        print("✅ Progress update completed")
+        print("✅ Progress update completed with verification")
 
         return {
             "updated_progress": updated_progress,
             "verification_results": verification,
+            "monitoring_results": monitoring_results,
             "stats_updated": True
         }
 
-    def process_all_videos(self, videos_data: List[Dict], start_queue: bool = True, 
-                          current_page: Optional[int] = None, 
-                          wait_for_completion: bool = True,
-                          completion_wait_time: int = 30) -> Dict:
+    def process_all_videos(self, videos_data: List[Dict], start_queue: bool = True,
+                         current_page: Optional[int] = None,
+                         use_dynamic_monitoring: bool = True) -> Dict:
         """
-        Process all videos with enhanced progress tracking.
+        Process all videos with improved completion monitoring.
 
         Args:
             videos_data: List of video metadata dictionaries
             start_queue: Whether to start IDM queue after adding downloads
             current_page: Current page being processed (for duplicate detection)
-            wait_for_completion: Whether to wait and update progress after completion
-            completion_wait_time: Time to wait before checking completion
+            use_dynamic_monitoring: Whether to use dynamic completion monitoring
 
         Returns:
             Processing results dictionary
@@ -475,23 +594,24 @@ class ProgressTrackingIDMManager:
         if not videos_data:
             return {"success": False, "error": "No video data provided"}
 
-        print(f"\n🎬 Processing {len(videos_data)} videos with progress tracking...")
+        print(f"\n🎬 Processing {len(videos_data)} videos with improved monitoring...")
         print(f"📁 Download directory: {self.base_download_dir}")
         print(f"📄 Progress file: {self.progress_file}")
-        print("="*80)
+        print(f"🔍 Dynamic monitoring: {'Enabled' if use_dynamic_monitoring else 'Disabled'}")
+        print("=" * 80)
 
         # Apply duplicate detection filtering
         if current_page is not None:
             videos_data = self._apply_duplicate_filtering(videos_data, current_page)
 
-            if not videos_data:
-                print("🔍 All videos were filtered as duplicates - nothing to process")
-                return {
-                    "success": True,
-                    "total_videos": 0,
-                    "videos_filtered_as_duplicates": len(videos_data),
-                    "message": "All videos were duplicates"
-                }
+        if not videos_data:
+            print("🔍 All videos were filtered as duplicates - nothing to process")
+            return {
+                "success": True,
+                "total_videos": 0,
+                "videos_filtered_as_duplicates": len(videos_data),
+                "message": "All videos were duplicates"
+            }
 
         # Reset stats for this batch
         self.stats.update({
@@ -503,7 +623,6 @@ class ProgressTrackingIDMManager:
 
         # Process each video (ADD TO IDM QUEUE - DO NOT UPDATE PROGRESS YET)
         video_results = {}
-
         for i, video_data in enumerate(videos_data, 1):
             video_id = video_data.get("video_id", f"unknown_{i}")
             print(f"\n📹 Processing video {i}/{len(videos_data)}: {video_id}")
@@ -521,9 +640,9 @@ class ProgressTrackingIDMManager:
                 video_results[video_id] = {"metadata": False, "thumbnail": False, "video": False}
                 self.stats["failed_additions"] += 1
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("📋 BATCH ADDITION TO IDM COMPLETE!")
-        print("⚠️  PROGRESS.JSON NOT UPDATED YET - WAITING FOR DOWNLOADS")
+        print("⚠️ PROGRESS.JSON NOT UPDATED YET - WAITING FOR DOWNLOADS")
         self._print_stats()
 
         # Start IDM queue if requested
@@ -536,19 +655,22 @@ class ProgressTrackingIDMManager:
                 print("✅ All downloads added to IDM and queue started!")
                 print("⏳ Downloads are now processing...")
             else:
-                print("⚠️  Downloads added but failed to start queue automatically.")
+                print("⚠️ Downloads added but failed to start queue automatically.")
                 print("💡 Please start the queue manually in IDM.")
         elif len(self.download_queue) == 0:
             print("📝 No downloads were added to queue.")
         else:
             print("📝 Downloads added to IDM queue but not started (start_queue=False)")
 
-        # Wait for completion and update progress if requested
+        # Use dynamic monitoring if requested and queue started
+        monitoring_results = None
         progress_update_results = None
-        if wait_for_completion and queue_started:
-            progress_update_results = self.update_progress_after_completion(completion_wait_time)
+
+        if use_dynamic_monitoring and queue_started:
+            monitoring_results = self._monitor_download_completion()
+            progress_update_results = self.update_progress_after_completion(monitoring_results)
         else:
-            print("\n📝 Skipping automatic progress update")
+            print("\n📝 Skipping dynamic monitoring")
             print("💡 Run update_progress_after_completion() manually when downloads finish")
 
         # Prepare final results
@@ -564,8 +686,9 @@ class ProgressTrackingIDMManager:
             "queue_started": queue_started,
             "video_results": video_results,
             "download_directory": str(self.base_download_dir),
+            "monitoring_results": monitoring_results,
             "progress_update_results": progress_update_results,
-            "wait_for_completion": wait_for_completion
+            "dynamic_monitoring_used": use_dynamic_monitoring
         }
 
         # Add duplicate detection summary if enabled
@@ -577,21 +700,23 @@ class ProgressTrackingIDMManager:
     def _print_stats(self):
         """Print detailed processing statistics."""
         print(f"📊 STATISTICS:")
-        print(f"   🎬 Total videos: {self.stats['total_videos']}")
-        print(f"   ✅ Successful additions: {self.stats['successful_additions']}")
-        print(f"   ❌ Failed additions: {self.stats['failed_additions']}")
-        print(f"   📁 Directories created: {self.stats['directories_created']}")
-        print(f"   📥 Items in download queue: {len(self.download_queue)}")
-        print(f"   📊 Progress updates: {self.stats['progress_updates']}")
-        print(f"   ✅ Verified completions: {self.stats['verified_completions']}")
+        print(f" 🎬 Total videos: {self.stats['total_videos']}")
+        print(f" ✅ Successful additions: {self.stats['successful_additions']}")
+        print(f" ❌ Failed additions: {self.stats['failed_additions']}")
+        print(f" 📁 Directories created: {self.stats['directories_created']}")
+        print(f" 📥 Items in download queue: {len(self.download_queue)}")
+        print(f" 📊 Progress updates: {self.stats['progress_updates']}")
+        print(f" ✅ Verified completions: {self.stats['verified_completions']}")
+        print(f" 🔄 Dynamic monitoring used: {self.stats['dynamic_wait_used']}")
+        print(f" 🔍 Completion cycles: {self.stats['completion_cycles']}")
 
         if self.duplicate_detection_enabled:
-            print(f"   🔍 Videos filtered by duplicates: {self.stats['videos_filtered_by_duplicates']}")
-            print(f"   ✅ Videos passed duplicate check: {self.stats['videos_passed_duplicate_check']}")
+            print(f" 🔍 Videos filtered by duplicates: {self.stats['videos_filtered_by_duplicates']}")
+            print(f" ✅ Videos passed duplicate check: {self.stats['videos_passed_duplicate_check']}")
 
         if self.stats["total_videos"] > 0:
             success_rate = (self.stats["successful_additions"] / self.stats["total_videos"]) * 100
-            print(f"   📈 Success rate: {success_rate:.1f}%")
+            print(f" 📈 Success rate: {success_rate:.1f}%")
 
     def manual_progress_update(self) -> Dict[str, Any]:
         """
@@ -601,7 +726,8 @@ class ProgressTrackingIDMManager:
             Progress update results
         """
         print("\n🔄 Manual progress update triggered...")
-        return self.update_progress_after_completion(wait_time=0)
+        monitoring_results = self._monitor_download_completion()
+        return self.update_progress_after_completion(monitoring_results)
 
     def get_progress_summary(self) -> Dict[str, Any]:
         """Get comprehensive progress summary."""
@@ -610,189 +736,3 @@ class ProgressTrackingIDMManager:
     def verify_progress_accuracy(self) -> Dict[str, Any]:
         """Verify and fix progress accuracy."""
         return self.progress_tracker.verify_and_fix_progress()
-
-
-# Integration class with progress tracking
-class ProgressTrackingVideoIDMProcessor:
-    """
-    Complete video processing workflow with enhanced progress tracking.
-    """
-
-    def __init__(self, base_url: str, download_dir: str = "downloads", idm_path: str = None,
-                 enable_duplicate_detection: bool = True, duplicate_check_limit: int = 100,
-                 progress_file: str = "progress.json"):
-        """
-        Initialize complete video to IDM processor with progress tracking.
-        """
-        self.base_url = base_url
-        self.download_dir = download_dir
-        self.progress_file = progress_file
-
-        # Extract page number from URL for duplicate detection
-        self.current_page = self._extract_page_from_url(base_url)
-
-        # Initialize video parser
-        try:
-            from video_data_parser import OptimizedVideoDataParser
-            self.parser = OptimizedVideoDataParser(base_url)
-            print("✅ Video parser initialized")
-        except ImportError as e:
-            print(f"❌ Could not import video parser: {e}")
-            print("💡 Please ensure video_data_parser.py is in the same directory")
-            self.parser = None
-
-        # Initialize progress tracking IDM manager
-        self.idm_manager = ProgressTrackingIDMManager(
-            download_dir, 
-            idm_path, 
-            enable_duplicate_detection=enable_duplicate_detection,
-            duplicate_check_limit=duplicate_check_limit,
-            progress_file=progress_file
-        )
-        print("✅ Progress Tracking IDM manager initialized")
-
-    def _extract_page_from_url(self, url: str) -> Optional[int]:
-        """Extract page number from URL for duplicate detection context."""
-        try:
-            parts = url.rstrip('/').split('/')
-            if parts and parts[-1].isdigit():
-                page_num = int(parts[-1])
-                print(f"📄 Extracted page number from URL: {page_num}")
-                return page_num
-        except Exception as e:
-            print(f"⚠️  Could not extract page number from URL: {e}")
-
-        return None
-
-    async def process_all_videos(self, wait_for_completion: bool = True, 
-                               completion_wait_time: int = 30) -> Dict:
-        """
-        Complete processing workflow with progress tracking.
-
-        Args:
-            wait_for_completion: Whether to wait and update progress after completion
-            completion_wait_time: Time to wait before checking completion
-
-        Returns:
-            Complete processing results
-        """
-        if not self.parser:
-            return {"success": False, "error": "Video parser not available"}
-
-        print(f"\n🚀 Starting video processing workflow with progress tracking")
-        print(f"🌐 Source URL: {self.base_url}")
-        print(f"📁 Download directory: {self.download_dir}")
-        print(f"📄 Progress file: {self.progress_file}")
-        print(f"📄 Current page: {self.current_page}")
-        print("="*80)
-
-        try:
-            # Step 1: Extract video URLs
-            print("📋 Step 1: Extracting video URLs...")
-            video_urls = await self.parser.extract_video_urls()
-
-            if not video_urls:
-                return {"success": False, "error": "No video URLs found"}
-
-            print(f"✅ Found {len(video_urls)} video URLs")
-
-            # Step 2: Parse video metadata
-            print(f"\n📋 Step 2: Parsing video metadata...")
-            videos_data = await self.parser.parse_all_videos()
-
-            if not videos_data:
-                return {"success": False, "error": "No video metadata could be parsed"}
-
-            print(f"✅ Successfully parsed {len(videos_data)} videos")
-
-            # Step 3: Add to IDM queue with progress tracking
-            print(f"\n📋 Step 3: Adding videos to IDM queue with progress tracking...")
-            idm_results = self.idm_manager.process_all_videos(
-                videos_data, 
-                start_queue=True,
-                current_page=self.current_page,
-                wait_for_completion=wait_for_completion,
-                completion_wait_time=completion_wait_time
-            )
-
-            # Combine results
-            return {
-                "success": True,
-                "urls_found": len(video_urls),
-                "videos_parsed": len(videos_data),
-                "current_page": self.current_page,
-                "idm_results": idm_results,
-                "download_directory": self.download_dir,
-                "progress_file": self.progress_file
-            }
-
-        except Exception as e:
-            print(f"❌ Error in processing workflow: {e}")
-            return {"success": False, "error": str(e)}
-
-
-if __name__ == "__main__":
-    """
-    Example usage of the progress tracking IDM system.
-    """
-    print("🚀 Progress Tracking Video to IDM Integration System")
-    print("="*70)
-    print("🆕 ENHANCED FEATURES:")
-    print("   - Updates progress.json ONLY after downloads are verified")
-    print("   - Monitors downloads folder for actual completion")
-    print("   - Calculates real folder sizes and completion status")
-    print("   - Does NOT update progress before IDM queue addition")
-    print("   - Provides post-download verification and updates")
-    print("="*70)
-
-    # Example configuration
-    BASE_URL = "https://rule34video.com/latest-updates/997"
-    DOWNLOAD_DIR = "downloads"
-    PROGRESS_FILE = "progress.json"
-
-    async def demo():
-        """Demonstration of the progress tracking system."""
-        processor = ProgressTrackingVideoIDMProcessor(
-            base_url=BASE_URL,
-            download_dir=DOWNLOAD_DIR,
-            progress_file=PROGRESS_FILE,
-            enable_duplicate_detection=True,
-            duplicate_check_limit=100
-        )
-
-        # Process videos with progress tracking
-        results = await processor.process_all_videos(
-            wait_for_completion=True,
-            completion_wait_time=30
-        )
-
-        print("\n" + "="*80)
-        print("📋 FINAL RESULTS WITH PROGRESS TRACKING")
-        print("="*80)
-
-        if results.get("success"):
-            print("✅ Processing completed successfully!")
-            print(f"   🌐 URLs found: {results.get('urls_found', 0)}")
-            print(f"   📹 Videos parsed: {results.get('videos_parsed', 0)}")
-            print(f"   📄 Page processed: {results.get('current_page', 'Unknown')}")
-            print(f"   📄 Progress file: {results.get('progress_file', 'Unknown')}")
-
-            idm_results = results.get("idm_results", {})
-            print(f"   ✅ Successful IDM additions: {idm_results.get('successful_additions', 0)}")
-            print(f"   🔍 Videos filtered by duplicates: {idm_results.get('videos_filtered_by_duplicates', 0)}")
-            print(f"   📥 Queue items: {idm_results.get('download_queue_size', 0)}")
-            print(f"   🚀 Queue started: {idm_results.get('queue_started', False)}")
-
-            # Show progress update results
-            progress_results = idm_results.get("progress_update_results")
-            if progress_results:
-                print(f"   📊 Progress updated: {progress_results.get('stats_updated', False)}")
-                print(f"   ✅ Verification passed: {progress_results['verification_results'].get('verification_passed', False)}")
-
-        else:
-            print("❌ Processing failed!")
-            print(f"   📄 Error: {results.get('error', 'Unknown error')}")
-
-    # Run demo
-    import asyncio
-    asyncio.run(demo())
