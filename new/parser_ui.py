@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
 """
-Web Parser Control Panel GUI
+Web Parser Control Panel GUI - Fixed Version
 
 A comprehensive Tkinter-based GUI application for monitoring and controlling 
 the main_scraper.py web parser with real-time progress tracking, log display,
 and configuration management.
 
-Features:
-- Real-time progress bar with MB values
-- Start/Stop parser controls
-- Live terminal output in GUI
-- Configuration management
-- Status indicators
-- Reset functionality
+FIXES:
+- Unicode/encoding issues resolved
+- Improved subprocess handling for parser control
+- Better error handling and process management
+- Enhanced cross-platform compatibility
 
 Author: AI Assistant
-Version: 1.0
+Version: 1.1 - Fixed encoding and process control issues
 """
 
 import tkinter as tk
@@ -48,8 +46,11 @@ class LogRedirector:
             self.text_widget.after(0, self._append_text, formatted_text)
 
     def _append_text(self, text):
-        self.text_widget.insert(tk.END, text, self.tag)
-        self.text_widget.see(tk.END)
+        try:
+            self.text_widget.insert(tk.END, text, self.tag)
+            self.text_widget.see(tk.END)
+        except Exception as e:
+            print(f"Error appending text: {e}")
 
     def flush(self):
         pass
@@ -138,87 +139,175 @@ class ProgressTracker:
             return False
 
 
-class ParserController:
-    """Controls the main parser process"""
+class ImprovedParserController:
+    """Enhanced parser controller with better subprocess handling"""
 
-    def __init__(self):
+    def __init__(self, gui_log_callback=None):
         self.process = None
         self.is_running = False
+        self.output_thread = None
+        self.should_stop_monitoring = False
+        self.gui_log_callback = gui_log_callback
 
     def start_parser(self) -> bool:
-        """Start the parser in a subprocess"""
+        """Start the parser in a subprocess with proper encoding handling"""
         if self.is_running:
+            self._log("Parser is already running!")
             return False
 
         try:
-            # Use the main_scraper.py file
+            # Check if main_scraper.py exists
             script_path = "main_scraper.py"
             if not os.path.exists(script_path):
-                print(f"Error: {script_path} not found!")
+                self._log(f"Error: {script_path} not found!")
                 return False
 
-            # Start the parser process
+            self._log("Starting parser subprocess...")
+
+            # Set environment variables to handle Unicode
+            env = os.environ.copy()
+            env['PYTHONIOENCODING'] = 'utf-8'
+
+            # Create startup info for Windows to hide console window
+            startupinfo = None
+            if sys.platform.startswith('win'):
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+
+            # Start the parser process with proper encoding
             self.process = subprocess.Popen(
-                [sys.executable, script_path],
+                [sys.executable, "-u", script_path],  # -u for unbuffered output
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=1
+                encoding='utf-8',
+                errors='replace',  # Handle encoding errors gracefully
+                bufsize=1,
+                env=env,
+                startupinfo=startupinfo,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform.startswith('win') else 0
             )
 
             self.is_running = True
-            print(f"Parser started with PID: {self.process.pid}")
+            self.should_stop_monitoring = False
+
+            # Start output monitoring thread
+            self.output_thread = threading.Thread(target=self._monitor_output, daemon=True)
+            self.output_thread.start()
+
+            self._log(f"Parser started successfully with PID: {self.process.pid}")
             return True
 
         except Exception as e:
-            print(f"Error starting parser: {e}")
+            self._log(f"Error starting parser: {e}")
+            self.is_running = False
             return False
 
     def stop_parser(self) -> bool:
-        """Stop the parser process"""
+        """Stop the parser process gracefully"""
         if not self.is_running or not self.process:
+            self._log("Parser is not running!")
             return False
 
         try:
-            self.process.terminate()
+            self._log("Stopping parser...")
 
-            # Wait for process to terminate gracefully
+            # Signal monitoring thread to stop
+            self.should_stop_monitoring = True
+
+            # Try graceful termination first
             try:
-                self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                # Force kill if not terminated gracefully
-                self.process.kill()
-                self.process.wait()
+                self.process.terminate()
+
+                # Wait for graceful shutdown with timeout
+                try:
+                    exit_code = self.process.wait(timeout=10)
+                    self._log(f"Parser stopped gracefully (exit code: {exit_code})")
+                except subprocess.TimeoutExpired:
+                    self._log("Parser didn't stop gracefully, forcing termination...")
+                    self.process.kill()
+                    exit_code = self.process.wait()
+                    self._log(f"Parser forcefully terminated (exit code: {exit_code})")
+
+            except Exception as term_error:
+                self._log(f"Error during termination: {term_error}")
+                try:
+                    self.process.kill()
+                    self.process.wait()
+                    self._log("Parser forcefully killed")
+                except Exception as kill_error:
+                    self._log(f"Error killing process: {kill_error}")
 
             self.is_running = False
             self.process = None
-            print("Parser stopped successfully")
+
+            # Wait for monitoring thread to finish
+            if self.output_thread and self.output_thread.is_alive():
+                self.output_thread.join(timeout=2)
+
             return True
 
         except Exception as e:
-            print(f"Error stopping parser: {e}")
+            self._log(f"Error stopping parser: {e}")
             return False
 
-    def get_output(self) -> Optional[str]:
-        """Get output from parser process"""
-        if not self.process or not self.is_running:
-            return None
+    def get_status(self) -> Dict[str, Any]:
+        """Get parser status"""
+        if not self.process:
+            return {"running": False, "pid": None, "exit_code": None}
+
+        # Check if process is still alive
+        exit_code = self.process.poll()
+        if exit_code is not None:
+            # Process has terminated
+            self.is_running = False
+            return {"running": False, "pid": self.process.pid, "exit_code": exit_code}
+
+        return {"running": self.is_running, "pid": self.process.pid, "exit_code": None}
+
+    def _monitor_output(self):
+        """Monitor parser output in background thread"""
+        self._log("Output monitoring started")
 
         try:
-            # Non-blocking read
-            line = self.process.stdout.readline()
-            if line:
-                return line.strip()
+            while self.is_running and not self.should_stop_monitoring and self.process:
+                try:
+                    # Check if process is still alive
+                    if self.process.poll() is not None:
+                        self._log("Parser process has terminated")
+                        self.is_running = False
+                        break
 
-            # Check if process has terminated
-            if self.process.poll() is not None:
-                self.is_running = False
-                return None
+                    # Try to read a line with timeout
+                    line = self.process.stdout.readline()
+
+                    if line:
+                        # Clean the line and log it
+                        clean_line = line.strip()
+                        if clean_line:
+                            self._log(f"[PARSER] {clean_line}")
+
+                    # Small delay to prevent busy waiting
+                    time.sleep(0.1)
+
+                except Exception as e:
+                    self._log(f"Error reading parser output: {e}")
+                    break
 
         except Exception as e:
-            print(f"Error reading parser output: {e}")
+            self._log(f"Error in output monitoring thread: {e}")
+        finally:
+            self._log("Output monitoring stopped")
 
-        return None
+    def _log(self, message: str):
+        """Log a message to console and GUI if callback available"""
+        print(message)  # Always log to console
+        if self.gui_log_callback:
+            try:
+                self.gui_log_callback(message)
+            except Exception as e:
+                print(f"Error calling GUI log callback: {e}")
 
 
 class WebParserGUI:
@@ -231,7 +320,6 @@ class WebParserGUI:
         # Initialize components
         self.config_manager = ConfigManager()
         self.progress_tracker = ProgressTracker()
-        self.parser_controller = ParserController()
 
         # Load initial data
         self.config_data = self.config_manager.load_config()
@@ -242,14 +330,16 @@ class WebParserGUI:
         self.output_queue = queue.Queue()
 
         self.setup_gui()
-        self.setup_monitoring()
-
-        # Redirect stdout to GUI
         self.setup_log_redirection()
+
+        # Initialize parser controller with GUI log callback
+        self.parser_controller = ImprovedParserController(gui_log_callback=self.add_log_message)
+
+        self.setup_monitoring()
 
     def setup_window(self):
         """Configure main window"""
-        self.root.title("Web Parser Control Panel v1.0")
+        self.root.title("Web Parser Control Panel v1.1")
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
 
@@ -278,7 +368,7 @@ class WebParserGUI:
         # Title
         title_label = ttk.Label(
             main_frame, 
-            text="🕷️ Web Parser Control Panel", 
+            text="Web Parser Control Panel", 
             font=('Arial', 16, 'bold')
         )
         title_label.pack(pady=(0, 10))
@@ -296,10 +386,10 @@ class WebParserGUI:
         """Setup main control tab"""
         # Main tab
         main_tab = ttk.Frame(self.notebook)
-        self.notebook.add(main_tab, text="📊 Main Control")
+        self.notebook.add(main_tab, text="Main Control")
 
         # Status frame
-        status_frame = ttk.LabelFrame(main_tab, text="📈 Parser Status", padding=10)
+        status_frame = ttk.LabelFrame(main_tab, text="Parser Status", padding=10)
         status_frame.pack(fill=tk.X, pady=(0, 10))
 
         # Status indicator
@@ -309,10 +399,19 @@ class WebParserGUI:
         ttk.Label(status_inner, text="Status:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT)
         self.status_label = ttk.Label(
             status_inner, 
-            text="🔴 Stopped", 
-            font=('Arial', 10)
+            text="Stopped", 
+            font=('Arial', 10),
+            foreground='red'
         )
         self.status_label.pack(side=tk.LEFT, padx=(5, 0))
+
+        # PID info
+        pid_frame = ttk.Frame(status_frame)
+        pid_frame.pack(fill=tk.X, pady=(5, 0))
+
+        ttk.Label(pid_frame, text="Process ID:", font=('Arial', 10, 'bold')).pack(side=tk.LEFT)
+        self.pid_label = ttk.Label(pid_frame, text="N/A", font=('Arial', 10))
+        self.pid_label.pack(side=tk.LEFT, padx=(5, 0))
 
         # Current page info
         page_frame = ttk.Frame(status_frame)
@@ -323,7 +422,7 @@ class WebParserGUI:
         self.current_page_label.pack(side=tk.LEFT, padx=(5, 0))
 
         # Progress frame
-        progress_frame = ttk.LabelFrame(main_tab, text="📊 Download Progress", padding=10)
+        progress_frame = ttk.LabelFrame(main_tab, text="Download Progress", padding=10)
         progress_frame.pack(fill=tk.X, pady=(0, 10))
 
         # Progress bar
@@ -355,7 +454,7 @@ class WebParserGUI:
         self.video_count_label.pack(side=tk.RIGHT)
 
         # Control buttons frame
-        control_frame = ttk.LabelFrame(main_tab, text="🎛️ Parser Controls", padding=10)
+        control_frame = ttk.LabelFrame(main_tab, text="Parser Controls", padding=10)
         control_frame.pack(fill=tk.X, pady=(0, 10))
 
         button_frame = ttk.Frame(control_frame)
@@ -364,33 +463,30 @@ class WebParserGUI:
         # Start button
         self.start_button = ttk.Button(
             button_frame,
-            text="🚀 Start Parsing",
-            command=self.start_parser,
-            style='Success.TButton'
+            text="Start Parsing",
+            command=self.start_parser
         )
         self.start_button.pack(side=tk.LEFT, padx=(0, 5))
 
         # Stop button
         self.stop_button = ttk.Button(
             button_frame,
-            text="🛑 Stop Parsing",
+            text="Stop Parsing",
             command=self.stop_parser,
-            state=tk.DISABLED,
-            style='Danger.TButton'
+            state=tk.DISABLED
         )
         self.stop_button.pack(side=tk.LEFT, padx=5)
 
         # Reset button
         self.reset_button = ttk.Button(
             button_frame,
-            text="🔄 Reset Progress",
-            command=self.reset_progress,
-            style='Warning.TButton'
+            text="Reset Progress",
+            command=self.reset_progress
         )
         self.reset_button.pack(side=tk.LEFT, padx=(5, 0))
 
         # Statistics frame
-        stats_frame = ttk.LabelFrame(main_tab, text="📈 Statistics", padding=10)
+        stats_frame = ttk.LabelFrame(main_tab, text="Statistics", padding=10)
         stats_frame.pack(fill=tk.BOTH, expand=True)
 
         # Create statistics display
@@ -399,7 +495,7 @@ class WebParserGUI:
     def setup_config_tab(self):
         """Setup configuration tab"""
         config_tab = ttk.Frame(self.notebook)
-        self.notebook.add(config_tab, text="⚙️ Configuration")
+        self.notebook.add(config_tab, text="Configuration")
 
         # Scrollable frame for config
         canvas = tk.Canvas(config_tab)
@@ -418,7 +514,7 @@ class WebParserGUI:
         scrollbar.pack(side="right", fill="y")
 
         # General settings
-        general_frame = ttk.LabelFrame(scrollable_frame, text="🌐 General Settings", padding=10)
+        general_frame = ttk.LabelFrame(scrollable_frame, text="General Settings", padding=10)
         general_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # Download directory
@@ -432,7 +528,7 @@ class WebParserGUI:
 
         ttk.Button(
             dir_frame,
-            text="📁 Browse",
+            text="Browse",
             command=self.browse_directory
         ).pack(side=tk.RIGHT)
 
@@ -460,7 +556,7 @@ class WebParserGUI:
         ttk.Entry(url_frame, textvariable=self.base_url_var).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
 
         # Processing settings
-        processing_frame = ttk.LabelFrame(scrollable_frame, text="⚡ Processing Settings", padding=10)
+        processing_frame = ttk.LabelFrame(scrollable_frame, text="Processing Settings", padding=10)
         processing_frame.pack(fill=tk.X, padx=10, pady=5)
 
         # Parallel processing
@@ -494,26 +590,26 @@ class WebParserGUI:
 
         ttk.Button(
             config_button_frame,
-            text="💾 Save Configuration",
+            text="Save Configuration",
             command=self.save_config
         ).pack(side=tk.LEFT, padx=(0, 5))
 
         ttk.Button(
             config_button_frame,
-            text="🔄 Reload Configuration",
+            text="Reload Configuration",
             command=self.reload_config
         ).pack(side=tk.LEFT, padx=5)
 
         ttk.Button(
             config_button_frame,
-            text="↩️ Reset to Defaults",
+            text="Reset to Defaults",
             command=self.reset_config
         ).pack(side=tk.LEFT, padx=(5, 0))
 
     def setup_logs_tab(self):
         """Setup logs display tab"""
         logs_tab = ttk.Frame(self.notebook)
-        self.notebook.add(logs_tab, text="📝 Logs")
+        self.notebook.add(logs_tab, text="Logs")
 
         # Log controls
         log_controls = ttk.Frame(logs_tab)
@@ -521,13 +617,13 @@ class WebParserGUI:
 
         ttk.Button(
             log_controls,
-            text="🗑️ Clear Logs",
+            text="Clear Logs",
             command=self.clear_logs
         ).pack(side=tk.LEFT)
 
         ttk.Button(
             log_controls,
-            text="📄 Save Logs",
+            text="Save Logs",
             command=self.save_logs
         ).pack(side=tk.LEFT, padx=(5, 0))
 
@@ -575,10 +671,9 @@ class WebParserGUI:
         # Downloaded videos stat
         downloaded_frame = ttk.Frame(stats_grid, relief='solid', borderwidth=1)
         downloaded_frame.grid(row=0, column=0, sticky='nsew', padx=2, pady=2)
-        downloaded_frame.configure(style='Stat.TFrame')
 
-        ttk.Label(downloaded_frame, text="📥", font=('Arial', 20)).pack(pady=(10, 0))
-        ttk.Label(downloaded_frame, text="Downloaded Videos", font=('Arial', 10, 'bold')).pack()
+        ttk.Label(downloaded_frame, text="Downloaded", font=('Arial', 12, 'bold')).pack(pady=(10, 0))
+        ttk.Label(downloaded_frame, text="Downloaded Videos", font=('Arial', 10)).pack()
         self.downloaded_count_label = ttk.Label(downloaded_frame, text="0", font=('Arial', 16))
         self.downloaded_count_label.pack(pady=(0, 10))
 
@@ -586,8 +681,8 @@ class WebParserGUI:
         failed_frame = ttk.Frame(stats_grid, relief='solid', borderwidth=1)
         failed_frame.grid(row=0, column=1, sticky='nsew', padx=2, pady=2)
 
-        ttk.Label(failed_frame, text="❌", font=('Arial', 20)).pack(pady=(10, 0))
-        ttk.Label(failed_frame, text="Failed Videos", font=('Arial', 10, 'bold')).pack()
+        ttk.Label(failed_frame, text="Failed", font=('Arial', 12, 'bold')).pack(pady=(10, 0))
+        ttk.Label(failed_frame, text="Failed Videos", font=('Arial', 10)).pack()
         self.failed_count_label = ttk.Label(failed_frame, text="0", font=('Arial', 16))
         self.failed_count_label.pack(pady=(0, 10))
 
@@ -595,8 +690,8 @@ class WebParserGUI:
         page_frame = ttk.Frame(stats_grid, relief='solid', borderwidth=1)
         page_frame.grid(row=0, column=2, sticky='nsew', padx=2, pady=2)
 
-        ttk.Label(page_frame, text="📄", font=('Arial', 20)).pack(pady=(10, 0))
-        ttk.Label(page_frame, text="Current Page", font=('Arial', 10, 'bold')).pack()
+        ttk.Label(page_frame, text="Page", font=('Arial', 12, 'bold')).pack(pady=(10, 0))
+        ttk.Label(page_frame, text="Current Page", font=('Arial', 10)).pack()
         self.page_stat_label = ttk.Label(page_frame, text="N/A", font=('Arial', 16))
         self.page_stat_label.pack(pady=(0, 10))
 
@@ -604,8 +699,8 @@ class WebParserGUI:
         size_frame = ttk.Frame(stats_grid, relief='solid', borderwidth=1)
         size_frame.grid(row=1, column=0, sticky='nsew', padx=2, pady=2)
 
-        ttk.Label(size_frame, text="💾", font=('Arial', 20)).pack(pady=(10, 0))
-        ttk.Label(size_frame, text="Total Size", font=('Arial', 10, 'bold')).pack()
+        ttk.Label(size_frame, text="Size", font=('Arial', 12, 'bold')).pack(pady=(10, 0))
+        ttk.Label(size_frame, text="Total Size", font=('Arial', 10)).pack()
         self.size_stat_label = ttk.Label(size_frame, text="0.00 MB", font=('Arial', 16))
         self.size_stat_label.pack(pady=(0, 10))
 
@@ -613,8 +708,8 @@ class WebParserGUI:
         usage_frame = ttk.Frame(stats_grid, relief='solid', borderwidth=1)
         usage_frame.grid(row=1, column=1, sticky='nsew', padx=2, pady=2)
 
-        ttk.Label(usage_frame, text="📊", font=('Arial', 20)).pack(pady=(10, 0))
-        ttk.Label(usage_frame, text="Storage Usage", font=('Arial', 10, 'bold')).pack()
+        ttk.Label(usage_frame, text="Usage", font=('Arial', 12, 'bold')).pack(pady=(10, 0))
+        ttk.Label(usage_frame, text="Storage Usage", font=('Arial', 10)).pack()
         self.usage_stat_label = ttk.Label(usage_frame, text="0.00%", font=('Arial', 16))
         self.usage_stat_label.pack(pady=(0, 10))
 
@@ -622,8 +717,8 @@ class WebParserGUI:
         updated_frame = ttk.Frame(stats_grid, relief='solid', borderwidth=1)
         updated_frame.grid(row=1, column=2, sticky='nsew', padx=2, pady=2)
 
-        ttk.Label(updated_frame, text="🕒", font=('Arial', 20)).pack(pady=(10, 0))
-        ttk.Label(updated_frame, text="Last Updated", font=('Arial', 10, 'bold')).pack()
+        ttk.Label(updated_frame, text="Updated", font=('Arial', 12, 'bold')).pack(pady=(10, 0))
+        ttk.Label(updated_frame, text="Last Updated", font=('Arial', 10)).pack()
         self.updated_stat_label = ttk.Label(updated_frame, text="Never", font=('Arial', 12))
         self.updated_stat_label.pack(pady=(0, 10))
 
@@ -643,9 +738,9 @@ class WebParserGUI:
         self.progress_thread = threading.Thread(target=self.monitor_progress, daemon=True)
         self.progress_thread.start()
 
-        # Parser output monitoring thread
-        self.output_thread = threading.Thread(target=self.monitor_parser_output, daemon=True)
-        self.output_thread.start()
+        # Parser status monitoring thread
+        self.status_thread = threading.Thread(target=self.monitor_parser_status, daemon=True)
+        self.status_thread.start()
 
     def monitor_progress(self):
         """Monitor progress.json for changes"""
@@ -666,21 +761,54 @@ class WebParserGUI:
                 print(f"Error monitoring progress: {e}")
                 time.sleep(5)
 
-    def monitor_parser_output(self):
-        """Monitor parser subprocess output"""
+    def monitor_parser_status(self):
+        """Monitor parser status and update GUI accordingly"""
         while self.update_running:
             try:
-                if self.parser_controller.is_running:
-                    output = self.parser_controller.get_output()
-                    if output:
-                        # Add to GUI log
-                        self.root.after(0, self.add_log_message, output, "stdout")
+                if self.parser_controller:
+                    status = self.parser_controller.get_status()
 
-                time.sleep(0.1)  # Check frequently for output
+                    # Update GUI status in main thread
+                    self.root.after(0, self._update_status_display, status)
+
+                time.sleep(1)  # Check every second
 
             except Exception as e:
-                print(f"Error monitoring parser output: {e}")
-                time.sleep(1)
+                print(f"Error monitoring parser status: {e}")
+                time.sleep(5)
+
+    def _update_status_display(self, status):
+        """Update status display in main thread"""
+        try:
+            running = status.get('running', False)
+            pid = status.get('pid')
+            exit_code = status.get('exit_code')
+
+            if running:
+                self.status_label.config(text="Running", foreground='green')
+                self.start_button.config(state=tk.DISABLED)
+                self.stop_button.config(state=tk.NORMAL)
+                self.reset_button.config(state=tk.DISABLED)
+                self.download_dir_entry.config(state=tk.DISABLED)
+            else:
+                self.status_label.config(text="Stopped", foreground='red')
+                self.start_button.config(state=tk.NORMAL)
+                self.stop_button.config(state=tk.DISABLED)
+                self.reset_button.config(state=tk.NORMAL)
+                self.download_dir_entry.config(state=tk.NORMAL)
+
+                # If process exited with error, show it
+                if exit_code is not None and exit_code != 0:
+                    self.add_log_message(f"Parser exited with error code: {exit_code}", "error")
+
+            # Update PID display
+            if pid:
+                self.pid_label.config(text=str(pid))
+            else:
+                self.pid_label.config(text="N/A")
+
+        except Exception as e:
+            print(f"Error updating status display: {e}")
 
     def update_progress_display(self):
         """Update progress bar and statistics"""
@@ -744,6 +872,11 @@ class WebParserGUI:
     def add_log_message(self, message, tag="stdout"):
         """Add message to log display"""
         try:
+            # Ensure this runs in main thread
+            if threading.current_thread() != threading.main_thread():
+                self.root.after(0, self.add_log_message, message, tag)
+                return
+
             self.log_text.insert(tk.END, message + "\n", tag)
 
             # Auto-scroll if enabled
@@ -762,48 +895,34 @@ class WebParserGUI:
     def start_parser(self):
         """Start the parser"""
         try:
+            self.add_log_message("Starting parser...", "info")
+
             if self.parser_controller.start_parser():
-                # Update UI state
-                self.start_button.config(state=tk.DISABLED)
-                self.stop_button.config(state=tk.NORMAL)
-                self.reset_button.config(state=tk.DISABLED)
-                self.status_label.config(text="🟢 Running")
-
-                # Disable config editing
-                self.download_dir_entry.config(state=tk.DISABLED)
-
-                self.add_log_message("✅ Parser started successfully", "info")
+                self.add_log_message("Parser started successfully", "info")
             else:
-                self.add_log_message("❌ Failed to start parser", "error")
+                self.add_log_message("Failed to start parser", "error")
                 messagebox.showerror("Error", "Failed to start parser. Check logs for details.")
 
         except Exception as e:
-            self.add_log_message(f"❌ Error starting parser: {e}", "error")
+            self.add_log_message(f"Error starting parser: {e}", "error")
             messagebox.showerror("Error", f"Error starting parser: {e}")
 
     def stop_parser(self):
         """Stop the parser"""
         try:
+            self.add_log_message("Stopping parser...", "warning")
+
             if self.parser_controller.stop_parser():
-                # Update UI state
-                self.start_button.config(state=tk.NORMAL)
-                self.stop_button.config(state=tk.DISABLED)
-                self.reset_button.config(state=tk.NORMAL)
-                self.status_label.config(text="🔴 Stopped")
-
-                # Enable config editing
-                self.download_dir_entry.config(state=tk.NORMAL)
-
-                self.add_log_message("🛑 Parser stopped successfully", "warning")
+                self.add_log_message("Parser stopped successfully", "warning")
             else:
-                self.add_log_message("❌ Failed to stop parser", "error")
+                self.add_log_message("Failed to stop parser", "error")
 
         except Exception as e:
-            self.add_log_message(f"❌ Error stopping parser: {e}", "error")
+            self.add_log_message(f"Error stopping parser: {e}", "error")
 
     def reset_progress(self):
         """Reset progress data"""
-        if self.parser_controller.is_running:
+        if self.parser_controller.get_status().get('running', False):
             messagebox.showwarning("Warning", "Cannot reset progress while parser is running.")
             return
 
@@ -820,20 +939,20 @@ class WebParserGUI:
         if result:
             try:
                 if self.progress_tracker.reset_progress():
-                    self.add_log_message("🔄 Progress reset successfully", "warning")
+                    self.add_log_message("Progress reset successfully", "warning")
                     self.update_progress_display()
                     messagebox.showinfo("Success", "Progress has been reset successfully.")
                 else:
-                    self.add_log_message("❌ Failed to reset progress", "error")
+                    self.add_log_message("Failed to reset progress", "error")
                     messagebox.showerror("Error", "Failed to reset progress.")
 
             except Exception as e:
-                self.add_log_message(f"❌ Error resetting progress: {e}", "error")
+                self.add_log_message(f"Error resetting progress: {e}", "error")
                 messagebox.showerror("Error", f"Error resetting progress: {e}")
 
     def browse_directory(self):
         """Browse for download directory"""
-        if self.parser_controller.is_running:
+        if self.parser_controller.get_status().get('running', False):
             messagebox.showwarning("Warning", "Cannot change directory while parser is running.")
             return
 
@@ -847,7 +966,7 @@ class WebParserGUI:
 
     def save_config(self):
         """Save configuration changes"""
-        if self.parser_controller.is_running:
+        if self.parser_controller.get_status().get('running', False):
             messagebox.showwarning("Warning", "Cannot save configuration while parser is running.")
             return
 
@@ -869,14 +988,14 @@ class WebParserGUI:
             # Save to file
             if self.config_manager.save_config(config):
                 self.config_data = config
-                self.add_log_message("💾 Configuration saved successfully", "info")
+                self.add_log_message("Configuration saved successfully", "info")
                 messagebox.showinfo("Success", "Configuration saved successfully.")
             else:
-                self.add_log_message("❌ Failed to save configuration", "error")
+                self.add_log_message("Failed to save configuration", "error")
                 messagebox.showerror("Error", "Failed to save configuration.")
 
         except Exception as e:
-            self.add_log_message(f"❌ Error saving configuration: {e}", "error")
+            self.add_log_message(f"Error saving configuration: {e}", "error")
             messagebox.showerror("Error", f"Error saving configuration: {e}")
 
     def reload_config(self):
@@ -891,16 +1010,16 @@ class WebParserGUI:
             self.use_parallel_var.set(self.config_data.get('processing', {}).get('use_parallel', True))
             self.batch_size_var.set(self.config_data.get('processing', {}).get('parallel_batch_size', 5))
 
-            self.add_log_message("🔄 Configuration reloaded", "info")
+            self.add_log_message("Configuration reloaded", "info")
             messagebox.showinfo("Success", "Configuration reloaded successfully.")
 
         except Exception as e:
-            self.add_log_message(f"❌ Error reloading configuration: {e}", "error")
+            self.add_log_message(f"Error reloading configuration: {e}", "error")
             messagebox.showerror("Error", f"Error reloading configuration: {e}")
 
     def reset_config(self):
         """Reset configuration to defaults"""
-        if self.parser_controller.is_running:
+        if self.parser_controller.get_status().get('running', False):
             messagebox.showwarning("Warning", "Cannot reset configuration while parser is running.")
             return
 
@@ -920,17 +1039,17 @@ class WebParserGUI:
                 self.use_parallel_var.set(True)
                 self.batch_size_var.set(5)
 
-                self.add_log_message("↩️ Configuration reset to defaults", "warning")
+                self.add_log_message("Configuration reset to defaults", "warning")
                 messagebox.showinfo("Success", "Configuration reset to defaults.")
 
             except Exception as e:
-                self.add_log_message(f"❌ Error resetting configuration: {e}", "error")
+                self.add_log_message(f"Error resetting configuration: {e}", "error")
                 messagebox.showerror("Error", f"Error resetting configuration: {e}")
 
     def clear_logs(self):
         """Clear the log display"""
         self.log_text.delete(1.0, tk.END)
-        self.add_log_message("🗑️ Logs cleared", "info")
+        self.add_log_message("Logs cleared", "info")
 
     def save_logs(self):
         """Save logs to file"""
@@ -947,22 +1066,23 @@ class WebParserGUI:
                 with open(filename, 'w', encoding='utf-8') as f:
                     f.write(logs_content)
 
-                self.add_log_message(f"📄 Logs saved to {filename}", "info")
+                self.add_log_message(f"Logs saved to {filename}", "info")
                 messagebox.showinfo("Success", f"Logs saved to {filename}")
 
             except Exception as e:
-                self.add_log_message(f"❌ Error saving logs: {e}", "error")
+                self.add_log_message(f"Error saving logs: {e}", "error")
                 messagebox.showerror("Error", f"Error saving logs: {e}")
 
     def on_closing(self):
         """Handle application closing"""
-        if self.parser_controller.is_running:
+        if self.parser_controller.get_status().get('running', False):
             result = messagebox.askyesno(
                 "Confirm Exit",
                 "Parser is still running. Do you want to stop it and exit?"
             )
             if result:
                 self.parser_controller.stop_parser()
+                time.sleep(1)  # Give it time to stop
             else:
                 return
 
@@ -986,7 +1106,7 @@ class WebParserGUI:
 
 def main():
     """Main entry point"""
-    print("🕷️ Starting Web Parser Control Panel...")
+    print("Starting Web Parser Control Panel v1.1...")
 
     # Check if main_scraper.py exists
     if not os.path.exists("main_scraper.py"):

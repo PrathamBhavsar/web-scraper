@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """
-Main Wrapper for Parser GUI Integration
+Main Wrapper for Parser GUI Integration - Fixed Version
 
 This wrapper provides simple start() and stop() functions that can be called
-by the GUI to control the main parser process.
+by the GUI to control the main parser process with proper encoding handling.
+
+FIXES:
+- Proper Unicode/encoding handling
+- Better subprocess management
+- Improved error handling
+- Cross-platform compatibility
 
 Author: AI Assistant
-Version: 1.0
+Version: 1.1 - Fixed encoding and process control
 """
 
 import os
@@ -17,16 +23,18 @@ import threading
 import time
 from typing import Optional
 
-class ParserWrapper:
-    """Wrapper class for the main parser"""
+
+class ImprovedParserWrapper:
+    """Enhanced wrapper class for the main parser with encoding fixes"""
 
     def __init__(self):
         self.process: Optional[subprocess.Popen] = None
         self.is_running = False
         self.should_stop = False
+        self.output_thread: Optional[threading.Thread] = None
 
     def start(self) -> bool:
-        """Start the parser process"""
+        """Start the parser process with proper encoding handling"""
         if self.is_running:
             print("Parser is already running!")
             return False
@@ -37,21 +45,41 @@ class ParserWrapper:
                 print("Error: main_scraper.py not found!")
                 return False
 
-            print("🚀 Starting parser...")
+            print("Starting parser with UTF-8 encoding...")
 
-            # Start the process
+            # Set up environment variables for UTF-8 encoding
+            env = os.environ.copy()
+            env['PYTHONIOENCODING'] = 'utf-8'
+            env['PYTHONUTF8'] = '1'
+
+            # Create startup info for Windows
+            startupinfo = None
+            creation_flags = 0
+
+            if sys.platform.startswith('win'):
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+                creation_flags = subprocess.CREATE_NO_WINDOW
+
+            # Start the process with proper encoding and error handling
             self.process = subprocess.Popen(
-                [sys.executable, "main_scraper.py"],
+                [sys.executable, "-u", "main_scraper.py"],  # -u for unbuffered output
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=1
+                encoding='utf-8',
+                errors='replace',  # Replace problematic characters instead of crashing
+                bufsize=1,
+                env=env,
+                startupinfo=startupinfo,
+                creationflags=creation_flags
             )
 
             self.is_running = True
             self.should_stop = False
 
-            print(f"✅ Parser started with PID: {self.process.pid}")
+            print(f"Parser started successfully with PID: {self.process.pid}")
 
             # Start output monitoring thread
             self.output_thread = threading.Thread(target=self._monitor_output, daemon=True)
@@ -60,51 +88,56 @@ class ParserWrapper:
             return True
 
         except Exception as e:
-            print(f"❌ Error starting parser: {e}")
+            print(f"Error starting parser: {e}")
             self.is_running = False
             return False
 
     def stop(self) -> bool:
-        """Stop the parser process"""
+        """Stop the parser process gracefully"""
         if not self.is_running or not self.process:
             print("Parser is not running!")
             return False
 
         try:
-            print("🛑 Stopping parser...")
+            print("Stopping parser...")
 
+            # Signal monitoring thread to stop
             self.should_stop = True
 
             # Try graceful termination first
-            if hasattr(self.process, 'terminate'):
+            try:
                 self.process.terminate()
 
-                # Wait for graceful shutdown
+                # Wait for graceful shutdown with timeout
                 try:
-                    self.process.wait(timeout=10)
-                    print("✅ Parser stopped gracefully")
+                    exit_code = self.process.wait(timeout=10)
+                    print(f"Parser stopped gracefully (exit code: {exit_code})")
                 except subprocess.TimeoutExpired:
-                    print("⚠️ Graceful shutdown timeout, forcing termination...")
+                    print("Parser didn't stop gracefully, forcing termination...")
+                    self.process.kill()
+                    exit_code = self.process.wait()
+                    print(f"Parser forcefully terminated (exit code: {exit_code})")
+
+            except Exception as term_error:
+                print(f"Error during termination: {term_error}")
+                try:
                     self.process.kill()
                     self.process.wait()
-                    print("✅ Parser forcefully terminated")
-            else:
-                # Fallback for older Python versions
-                os.kill(self.process.pid, signal.SIGTERM)
-                time.sleep(2)
-                try:
-                    os.kill(self.process.pid, 0)  # Check if still running
-                    os.kill(self.process.pid, signal.SIGKILL)  # Force kill
-                except OSError:
-                    pass  # Process already terminated
+                    print("Parser forcefully killed")
+                except Exception as kill_error:
+                    print(f"Error killing process: {kill_error}")
 
             self.is_running = False
             self.process = None
 
+            # Wait for monitoring thread to finish
+            if self.output_thread and self.output_thread.is_alive():
+                self.output_thread.join(timeout=2)
+
             return True
 
         except Exception as e:
-            print(f"❌ Error stopping parser: {e}")
+            print(f"Error stopping parser: {e}")
             return False
 
     def is_parser_running(self) -> bool:
@@ -142,26 +175,63 @@ class ParserWrapper:
             print(f"Error reading parser output: {e}")
             return None
 
+    def get_status(self) -> dict:
+        """Get detailed parser status"""
+        if not self.process:
+            return {"running": False, "pid": None, "exit_code": None}
+
+        # Check if process is still alive
+        exit_code = self.process.poll()
+        if exit_code is not None:
+            # Process has terminated
+            self.is_running = False
+            return {"running": False, "pid": self.process.pid, "exit_code": exit_code}
+
+        return {"running": self.is_running, "pid": self.process.pid, "exit_code": None}
+
     def _monitor_output(self):
-        """Monitor parser output in background thread"""
-        while self.is_running and not self.should_stop:
-            try:
-                output = self.get_output()
-                if output:
-                    print(f"[PARSER] {output}")
+        """Monitor parser output in background thread with encoding safety"""
+        print("Output monitoring started")
 
-                # Small delay to prevent busy waiting
-                time.sleep(0.1)
+        try:
+            while self.is_running and not self.should_stop and self.process:
+                try:
+                    # Check if process is still alive
+                    if self.process.poll() is not None:
+                        print("Parser process has terminated")
+                        self.is_running = False
+                        break
 
-            except Exception as e:
-                print(f"Error in output monitoring: {e}")
-                break
+                    # Try to read a line with proper encoding handling
+                    line = self.process.stdout.readline()
 
-        print("Output monitoring stopped")
+                    if line:
+                        # Clean the line and handle any remaining encoding issues
+                        try:
+                            clean_line = line.strip()
+                            if clean_line:
+                                print(f"[PARSER] {clean_line}")
+                        except UnicodeEncodeError:
+                            # If there are still encoding issues, replace problematic characters
+                            clean_line = line.strip().encode('ascii', 'replace').decode('ascii')
+                            if clean_line:
+                                print(f"[PARSER] {clean_line}")
+
+                    # Small delay to prevent busy waiting
+                    time.sleep(0.1)
+
+                except Exception as e:
+                    print(f"Error reading parser output: {e}")
+                    break
+
+        except Exception as e:
+            print(f"Error in output monitoring thread: {e}")
+        finally:
+            print("Output monitoring stopped")
 
 
 # Global parser instance
-_parser_wrapper = ParserWrapper()
+_parser_wrapper = ImprovedParserWrapper()
 
 
 def start() -> bool:
@@ -181,48 +251,54 @@ def is_running() -> bool:
 
 def get_status() -> dict:
     """Get parser status (GUI interface function)"""
-    return {
-        "running": _parser_wrapper.is_parser_running(),
-        "pid": _parser_wrapper.process.pid if _parser_wrapper.process else None
-    }
+    return _parser_wrapper.get_status()
+
+
+def get_output() -> Optional[str]:
+    """Get parser output (GUI interface function)"""
+    return _parser_wrapper.get_output()
 
 
 def main():
     """Main function for testing the wrapper"""
-    print("🧪 Testing Parser Wrapper")
+    print("Testing Improved Parser Wrapper v1.1")
     print("=" * 50)
 
     try:
         # Test start
         print("\n1. Testing start()...")
         if start():
-            print("✅ Start successful")
+            print("Start successful")
 
             # Let it run for a few seconds
             print("\n2. Letting parser run for 10 seconds...")
-            time.sleep(10)
-
-            # Test status
-            print("\n3. Testing status...")
-            status = get_status()
-            print(f"Status: {status}")
+            for i in range(10):
+                time.sleep(1)
+                status = get_status()
+                if not status['running']:
+                    print(f"Parser stopped unexpectedly (exit code: {status.get('exit_code')})")
+                    break
+                print(f"Running... ({i+1}/10) PID: {status.get('pid')}")
 
             # Test stop
-            print("\n4. Testing stop()...")
-            if stop():
-                print("✅ Stop successful")
+            if is_running():
+                print("\n3. Testing stop()...")
+                if stop():
+                    print("Stop successful")
+                else:
+                    print("Stop failed")
             else:
-                print("❌ Stop failed")
+                print("\n3. Parser already stopped")
         else:
-            print("❌ Start failed")
+            print("Start failed")
 
     except KeyboardInterrupt:
-        print("\n\n⚠️ Interrupted by user")
+        print("\n\nInterrupted by user")
         if is_running():
             print("Stopping parser...")
             stop()
     except Exception as e:
-        print(f"\n❌ Error in testing: {e}")
+        print(f"\nError in testing: {e}")
         if is_running():
             stop()
 
