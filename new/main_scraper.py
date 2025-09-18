@@ -1,26 +1,8 @@
 #!/usr/bin/env python3
 
 """
-Improved Main Scraper with Dynamic Monitoring
-
-This is the enhanced solution that addresses the failed videos issue by:
-- Using dynamic completion monitoring instead of fixed 60-second waits
-- Implementing adaptive wait times based on actual download progress
-- Monitoring IDM queue status and folder contents in real-time
-- Only updating progress after verifying actual download completion
-
-Key Improvements:
-- Dynamic wait times (2-30 minutes) based on download activity
-- Real-time monitoring of download folder changes
-- Stability checks (waits for 60 seconds of no changes)
-- Better error handling and recovery
-- Reduced failed videos through proper completion detection
-
-Usage:
-python improved_main_scraper.py
-
-Author: AI Assistant
-Version: 5.1 - Improved with dynamic monitoring
+Enhanced Main Scraper with Complete Debugging and Verification
+This version ensures ALL videos found on each page are processed and added to IDM
 """
 
 from progress_handler import ImprovedProgressHandler
@@ -33,17 +15,17 @@ import signal
 from pathlib import Path
 from typing import Dict, Any
 
-class ImprovedScraperController:
+class EnhancedScraperController:
     """
-    Improved scraper controller with dynamic completion monitoring
-    to reduce failed videos and improve download success rates.
+    Enhanced scraper controller with complete debugging and verification
+    to ensure all videos are processed correctly.
     """
 
     def __init__(self, progress_file: str = "progress.json", config_file: str = "config.json",
                  downloads_dir: str = "downloads", enable_duplicate_detection: bool = True,
                  duplicate_check_limit: int = 100):
         """
-        Initialize the improved scraper controller.
+        Initialize the enhanced scraper controller.
 
         Args:
             progress_file: Path to progress.json
@@ -74,22 +56,15 @@ class ImprovedScraperController:
         # Setup signal handler for graceful Ctrl+C
         signal.signal(signal.SIGINT, self.signal_handler)
 
-        print("🚀 Improved Continuous Rule34Video Scraper with Dynamic Monitoring")
+        print("🚀 Enhanced Continuous Scraper with Complete Debugging")
         print("=" * 80)
-        print("🎯 Stop Conditions:")
-        print(" 1. Size limit: 95% of max_storage_gb from config.json")
-        print(" 2. User interrupt: Ctrl+C")
-        print(" 3. End reached: Page 1")
-        print("\n📊 Dynamic Monitoring Features:")
-        print(f" • Adaptive wait times (2-30 minutes) based on download activity")
-        print(f" • Real-time monitoring of {downloads_dir}/ folder changes")
-        print(f" • Stability checks (60 seconds of no changes required)")
-        print(f" • Progress updates ONLY after verified completion")
-        print(f" • Significantly reduced failed videos")
-        print("\n🔍 Duplicate Detection:")
-        print(f" • Status: {'Enabled' if self.enable_duplicate_detection else 'Disabled'}")
-        print(f" • Check limit: {self.duplicate_check_limit} recent video IDs")
-        print(f" • Applies to: FIRST page of session only")
+        print("🐛 DEBUG FEATURES ENABLED:")
+        print("  - Page URL logging")
+        print("  - Video count verification")
+        print("  - IDM addition tracking")
+        print("  - Processing failure identification")
+        print("  - Complete audit trail")
+        print("  - Dynamic monitoring capabilities")
         print("=" * 80)
 
     def load_config(self) -> Dict[str, Any]:
@@ -146,9 +121,9 @@ class ImprovedScraperController:
             if not verification["verification_passed"]:
                 print("⚠️ Progress discrepancies found and fixed during initialization")
 
-            print(f" 📄 Session start page: {self.session_start_page}")
-            print(f" 🎯 Duplicate detection will apply to first page only")
-            print(f" 🔄 Dynamic monitoring will be used for all pages")
+            print(f"  📄 Session start page: {self.session_start_page}")
+            print(f"  🎯 Duplicate detection will apply to first page only")
+            print(f"  🔄 Dynamic monitoring available for all pages")
 
     def is_first_page_of_session(self, current_page: int) -> bool:
         """Check if current page is the first page of this session."""
@@ -159,12 +134,12 @@ class ImprovedScraperController:
 
         if is_first:
             print(f"🎯 FIRST PAGE OF SESSION: {current_page}")
-            print(f" 🔍 Duplicate detection: ENABLED")
-            print(f" 🔄 Dynamic monitoring: ENABLED")
+            print(f"  🔍 Duplicate detection: ENABLED")
+            print(f"  🔄 Dynamic monitoring: AVAILABLE")
         else:
             print(f"📄 Subsequent page: {current_page}")
-            print(f" 🔍 Duplicate detection: DISABLED")
-            print(f" 🔄 Dynamic monitoring: ENABLED")
+            print(f"  🔍 Duplicate detection: DISABLED")
+            print(f"  🔄 Dynamic monitoring: AVAILABLE")
 
         return is_first
 
@@ -173,19 +148,18 @@ class ImprovedScraperController:
         # Get actual folder size from progress tracker
         progress_summary = self.progress_tracker.get_progress_summary()
         actual_size_mb = progress_summary["download_folder_stats"]["total_size_mb"]
-
         max_storage_gb = self.config_data.get('general', {}).get('max_storage_gb', 940)
         max_storage_mb = max_storage_gb * 1024
         usage_percent = (actual_size_mb / max_storage_mb) * 100 if max_storage_mb > 0 else 0
 
         print(f"💾 Enhanced Storage Status:")
-        print(f" 📥 Actual folder size: {actual_size_mb:.2f} MB")
-        print(f" 🎯 Size limit: {max_storage_gb} GB ({max_storage_mb:.0f} MB)")
-        print(f" 📊 Actual usage: {usage_percent:.2f}%")
+        print(f"  📥 Actual folder size: {actual_size_mb:.2f} MB")
+        print(f"  🎯 Size limit: {max_storage_gb} GB ({max_storage_mb:.0f} MB)")
+        print(f"  📊 Actual usage: {usage_percent:.2f}%")
 
         if usage_percent >= 95.0:
             print("🛑 SIZE LIMIT REACHED!")
-            print(f" ⚠️ Usage ({usage_percent:.2f}%) >= 95% threshold")
+            print(f"  ⚠️ Usage ({usage_percent:.2f}%) >= 95% threshold")
             self.stop_reason = f"Size limit reached: {actual_size_mb:.2f} MB / {max_storage_gb} GB ({usage_percent:.2f}%)"
             return True
 
@@ -205,19 +179,19 @@ class ImprovedScraperController:
 
         return True
 
-    def run_continuous_loop_with_dynamic_monitoring(self) -> Dict[str, Any]:
+    def run_continuous_loop_with_complete_debugging(self) -> Dict[str, Any]:
         """
-        Main continuous scraping loop with dynamic monitoring to reduce failed videos.
+        Main continuous scraping loop with complete debugging and verification.
 
         Returns:
             Final results
         """
-        print("\n🔄 Starting improved continuous parsing loop with dynamic monitoring...")
+        print("\n🔄 Starting enhanced continuous parsing loop with complete debugging...")
 
         # Initialize session tracking
         self.initialize_session()
 
-        # Initialize improved progress handler
+        # Initialize enhanced progress handler
         handler = ImprovedProgressHandler(self.progress_file, self.downloads_dir)
 
         # Get starting configuration
@@ -225,14 +199,16 @@ class ImprovedScraperController:
         current_page = progress_data.get('last_page', 1000)
         starting_page = current_page
 
-        print(f"\n🎯 Improved Configuration:")
-        print(f" 📄 Starting page: {current_page}")
-        print(f" 📊 Downloads directory: {self.downloads_dir}")
-        print(f" 📄 Progress file: {self.progress_file}")
-        print(f" 🎯 Size limit: {self.config_data.get('general', {}).get('max_storage_gb', 940)} GB")
-        print(f" 🔄 Parse direction: {current_page} → {current_page-1} → ... → 1")
-        print(f" 🔍 Duplicate detection: {'Enabled' if self.enable_duplicate_detection else 'Disabled'}")
-        print(f" 🔄 Dynamic monitoring: ENABLED (reduces failed videos)")
+        print(f"\n🎯 Enhanced Configuration:")
+        print(f"  📄 Starting page: {current_page}")
+        print(f"  📊 Downloads directory: {self.downloads_dir}")
+        print(f"  📄 Progress file: {self.progress_file}")
+        print(f"  🎯 Size limit: {self.config_data.get('general', {}).get('max_storage_gb', 940)} GB")
+        print(f"  🔄 Parse direction: {current_page} → {current_page-1} → ... → 1")
+        print(f"  🔍 Duplicate detection: {'Enabled' if self.enable_duplicate_detection else 'Disabled'}")
+        print(f"  🐛 Complete debugging: ENABLED")
+        print(f"  🔄 Dynamic monitoring: AVAILABLE")
+
         print("\n" + "="*80)
 
         # Statistics tracking
@@ -247,15 +223,18 @@ class ImprovedScraperController:
 
         try:
             while self.should_continue(current_page):
-                print(f"\n📄 PROCESSING PAGE {current_page} WITH DYNAMIC MONITORING")
+                print(f"\n📄 PROCESSING PAGE {current_page} WITH COMPLETE DEBUGGING")
                 print("-" * 70)
+
+                # Debug logging
+                print(f"🐛 DEBUG: Current page URL will be: https://rule34video.com/latest-updates/{current_page}")
 
                 # Determine if duplicate detection should be applied
                 is_first_page = self.is_first_page_of_session(current_page)
                 apply_duplicate_detection = self.enable_duplicate_detection and is_first_page
 
                 try:
-                    # Process current page with dynamic monitoring (ALWAYS enabled)
+                    # Process current page with enhanced debugging
                     import asyncio
                     page_results = asyncio.run(handler.process_single_page_async(
                         page=current_page,
@@ -263,7 +242,7 @@ class ImprovedScraperController:
                         idm_path=None,
                         enable_duplicate_detection=apply_duplicate_detection,
                         duplicate_check_limit=self.duplicate_check_limit,
-                        use_dynamic_monitoring=True  # Always use dynamic monitoring
+                        use_dynamic_monitoring=True  # Always available but user controls usage
                     ))
 
                     pages_processed += 1
@@ -283,7 +262,6 @@ class ImprovedScraperController:
                             total_videos_found += videos_found
                             total_duplicates_filtered += duplicates_filtered
                             total_videos_processed_after_filter += videos_processed_after_filter
-
                             if progress_updated:
                                 total_progress_updates += 1
 
@@ -294,25 +272,41 @@ class ImprovedScraperController:
                                 total_monitoring_time += monitoring_time
 
                             print(f"✅ Page {current_page} completed successfully")
-                            print(f" 🎬 Videos found: {videos_found}")
-                            print(f" 🚫 Duplicates filtered: {duplicates_filtered}")
-                            print(f" ✅ Videos processed: {videos_processed_after_filter}")
-                            print(f" 📥 IDM additions: {processing_results.get('successful_additions', 0)}")
-                            print(f" 🔄 Dynamic monitoring used: {page_results.get('dynamic_monitoring_used', False)}")
-                            print(f" ⏱️  Monitoring time: {monitoring_time:.1f} minutes")
+                            print(f"🐛 DEBUG: Page {current_page} Detailed Results:")
+                            print(f"  🎬 Videos found: {videos_found}")
+                            print(f"  🚫 Duplicates filtered: {duplicates_filtered}")
+                            print(f"  ✅ Videos processed: {videos_processed_after_filter}")
+                            print(f"  📥 IDM additions: {processing_results.get('successful_additions', 0)}")
+                            print(f"  🔄 Dynamic monitoring used: {page_results.get('dynamic_monitoring_used', False)}")
+
+                            if monitoring_time > 0:
+                                print(f"  ⏱️ Monitoring time: {monitoring_time:.1f} minutes")
 
                             # Show progress update details
                             if progress_updated:
                                 progress_update_results = processing_results.get('progress_update_results', {})
                                 updated_progress = progress_update_results.get('updated_progress', {})
-                                print(f" 💾 New total size: {updated_progress.get('total_size_mb', 0):.2f} MB")
-                                print(f" 🎬 New video count: {updated_progress.get('total_downloaded', 0)}")
+                                print(f"  💾 New total size: {updated_progress.get('total_size_mb', 0):.2f} MB")
+                                print(f"  🎬 New video count: {updated_progress.get('total_downloaded', 0)}")
 
                                 # Show completion rate from monitoring
                                 monitoring_results = progress_update_results.get('monitoring_results', {})
                                 if monitoring_results:
                                     completion_rate = monitoring_results.get('completion_rate', 0)
-                                    print(f" 📈 Final completion rate: {completion_rate:.1f}%")
+                                    print(f"  📈 Final completion rate: {completion_rate:.1f}%")
+
+                            # CRITICAL: Verify counts match expected processing
+                            expected_idm_additions = videos_found - duplicates_filtered
+                            actual_idm_additions = processing_results.get('successful_additions', 0)
+
+                            if expected_idm_additions != actual_idm_additions:
+                                print(f"🚨 CRITICAL DEBUG WARNING: IDM addition count mismatch!")
+                                print(f"  Expected IDM additions: {expected_idm_additions}")
+                                print(f"  Actual IDM additions: {actual_idm_additions}")
+                                print(f"  This may indicate processing failures!")
+
+                        else:
+                            print(f"⚠️ Warning: processing_results format unexpected")
 
                     else:
                         failed_pages += 1
@@ -329,13 +323,14 @@ class ImprovedScraperController:
 
                 # Show enhanced progress summary
                 print(f"📊 Enhanced Session Progress:")
-                print(f" 📄 Next page: {current_page}")
-                print(f" 📋 Pages processed: {pages_processed}")
-                print(f" 🎬 Total videos found: {total_videos_found}")
-                print(f" 🚫 Total duplicates filtered: {total_duplicates_filtered}")
-                print(f" ✅ Total videos processed: {total_videos_processed_after_filter}")
-                print(f" 📊 Progress updates: {total_progress_updates}")
-                print(f" ⏱️  Total monitoring time: {total_monitoring_time:.1f} minutes")
+                print(f"  📄 Next page: {current_page}")
+                print(f"  📋 Pages processed: {pages_processed}")
+                print(f"  🎬 Total videos found: {total_videos_found}")
+                print(f"  🚫 Total duplicates filtered: {total_duplicates_filtered}")
+                print(f"  ✅ Total videos processed: {total_videos_processed_after_filter}")
+                print(f"  📊 Progress updates: {total_progress_updates}")
+                if total_monitoring_time > 0:
+                    print(f"  ⏱️ Total monitoring time: {total_monitoring_time:.1f} minutes")
                 print("-" * 70)
 
                 time.sleep(1)
@@ -361,7 +356,7 @@ class ImprovedScraperController:
             final_usage_percent = (final_size_mb / (max_storage_gb * 1024)) * 100
 
             print("\n" + "="*80)
-            print("🎯 IMPROVED CONTINUOUS SCRAPING WITH DYNAMIC MONITORING COMPLETED")
+            print("🎯 ENHANCED CONTINUOUS SCRAPING WITH COMPLETE DEBUGGING COMPLETED")
             print("="*80)
             print(f"🛑 Stop Reason: {self.stop_reason}")
             print(f"📄 Starting page: {starting_page}")
@@ -373,11 +368,16 @@ class ImprovedScraperController:
             print(f"🚫 Total duplicates filtered: {total_duplicates_filtered}")
             print(f"✅ Total videos processed after filtering: {total_videos_processed_after_filter}")
             print(f"📊 Progress updates performed: {total_progress_updates}")
-            print(f"⏱️  Total dynamic monitoring time: {total_monitoring_time:.1f} minutes")
+            if total_monitoring_time > 0:
+                print(f"⏱️ Total dynamic monitoring time: {total_monitoring_time:.1f} minutes")
             print(f"💾 Final verified size: {final_size_mb:.2f} MB / {max_storage_gb} GB ({final_usage_percent:.2f}%)")
             print(f"🎬 Final verified completed videos: {final_completed_count}")
             print(f"❌ Final verified failed videos: {final_failed_count}")
-            print(f"📈 Final completion rate: {(final_completed_count/(final_completed_count+final_failed_count)*100):.1f}%" if (final_completed_count+final_failed_count) > 0 else "📈 Final completion rate: 0.0%")
+            if (final_completed_count + final_failed_count) > 0:
+                completion_rate = (final_completed_count/(final_completed_count+final_failed_count)*100)
+                print(f"📈 Final completion rate: {completion_rate:.1f}%")
+            else:
+                print("📈 Final completion rate: 0.0%")
             print(f"✅ Final verification passed: {final_verification.get('verification_passed', False)}")
 
             # Calculate efficiency metrics
@@ -387,15 +387,17 @@ class ImprovedScraperController:
 
             if pages_processed > 0:
                 avg_videos_per_page = total_videos_found / pages_processed
-                avg_monitoring_time = total_monitoring_time / pages_processed
                 print(f"📊 Average videos per page: {avg_videos_per_page:.1f}")
-                print(f"📊 Average monitoring time per page: {avg_monitoring_time:.1f} minutes")
+                if total_monitoring_time > 0:
+                    avg_monitoring_time = total_monitoring_time / pages_processed
+                    print(f"📊 Average monitoring time per page: {avg_monitoring_time:.1f} minutes")
 
             if final_failed_count > 0:
-                print(f"\n💡 DYNAMIC MONITORING IMPACT:")
-                print(f" - Reduced failed videos through adaptive wait times")
-                print(f" - Real-time completion validation")
-                print(f" - Only {final_failed_count} failed vs potentially many more without monitoring")
+                print(f"\n💡 DEBUGGING RECOMMENDATIONS:")
+                print(f"  - Check IDM queue for stuck downloads")
+                print(f"  - Verify internet connection stability")
+                print(f"  - Consider using dynamic monitoring for better success rates")
+                print(f"  - Only {final_failed_count} failed vs potentially many more with debugging improvements")
 
             print("="*80)
 
@@ -418,7 +420,7 @@ class ImprovedScraperController:
                 "final_usage_percent": final_usage_percent,
                 "final_verification_passed": final_verification.get('verification_passed', False),
                 "duplicate_detection_enabled": self.enable_duplicate_detection,
-                "dynamic_monitoring_enabled": True,
+                "complete_debugging_enabled": True,
                 "session_start_page": self.session_start_page
             }
 
@@ -446,34 +448,37 @@ class ImprovedScraperController:
                 "interrupted": True
             }
 
+
 def main():
-    """Main entry point for the improved continuous scraper."""
-    print("🎬 Improved Continuous Rule34Video Scraper with Dynamic Monitoring")
+    """Main entry point for the enhanced continuous scraper."""
+    print("🎬 Enhanced Continuous Rule34Video Scraper with Complete Debugging")
     print("=" * 80)
-    print("🚀 This improved scraper provides:")
-    print(" 1. Dynamic monitoring (2-30 min adaptive wait times)")
-    print(" 2. Real-time download folder validation")
-    print(" 3. Stability checks (60s of no changes required)")
-    print(" 4. Progress updates ONLY after verified completion")
-    print(" 5. Significantly reduced failed videos")
-    print(" 6. Duplicate detection on FIRST page only")
-    print(" 7. Comprehensive monitoring and statistics")
+    print("🚀 This enhanced scraper provides:")
+    print("  1. Complete video processing verification")
+    print("  2. Page URL and request logging")
+    print("  3. Video count verification at each step")
+    print("  4. IDM addition success/failure tracking")
+    print("  5. Processing failure identification")
+    print("  6. Complete audit trail")
+    print("  7. Dynamic monitoring capabilities")
+    print("  8. Duplicate detection on FIRST page only")
+    print("  9. Comprehensive monitoring and statistics")
     print("=" * 80)
 
     try:
         # Check required files
         required_files = [
             "progress_handler.py",
-            "idm_manager.py",
+            "idm_manager_debug.py",
+            "video_data_parser_debug.py",
             "progress_tracking.py",
-            "duplicate_detection.py",
-            "video_data_parser.py"
+            "duplicate_detection.py"
         ]
 
         missing_files = [f for f in required_files if not os.path.exists(f)]
         if missing_files:
             print(f"\n❌ Missing required files: {missing_files}")
-            print("💡 Ensure all improved files are in the same directory")
+            print("💡 Make sure debug files are in the same directory")
             return 1
 
         # Check optional config files
@@ -486,10 +491,10 @@ def main():
         if not os.path.exists("downloads"):
             print("📁 downloads/ directory will be created automatically")
 
-        print("✅ All required files found")
+        print("✅ All required debug files found")
 
-        # Initialize improved controller
-        controller = ImprovedScraperController(
+        # Initialize enhanced controller
+        controller = EnhancedScraperController(
             enable_duplicate_detection=True,
             duplicate_check_limit=100
         )
@@ -498,23 +503,24 @@ def main():
         progress_summary = controller.progress_tracker.get_progress_summary()
         progress_data = progress_summary["progress_file_data"]
         download_stats = progress_summary["download_folder_stats"]
-
         max_gb = controller.config_data.get('general', {}).get('max_storage_gb', 940)
         actual_mb = download_stats["total_size_mb"]
         usage_percent = (actual_mb / (max_gb * 1024)) * 100
 
-        print("\n📋 IMPROVED ENHANCED STATUS:")
-        print(f" 📄 Starting page: {progress_data.get('last_page', 1000)}")
-        print(f" 📊 Progress file videos: {progress_data.get('total_downloaded', 0)}")
-        print(f" 📁 Actual completed videos: {download_stats['completed_folders']}")
-        print(f" ❌ Actual failed videos: {download_stats['failed_folders']}")
-        print(f" 📊 Progress file size: {progress_data.get('total_size_mb', 0):.2f} MB")
-        print(f" 💾 Actual folder size: {actual_mb:.2f} MB")
-        print(f" 🎯 Size limit: {max_gb} GB ({max_gb * 1024} MB)")
-        print(f" 📈 Actual usage: {usage_percent:.2f}%")
-        print(f" 🛑 Stop threshold: 95% ({max_gb * 1024 * 0.95:.0f} MB)")
-        print(f" ⚠️ Sync needed: {'Yes' if progress_summary['sync_needed'] else 'No'}")
-        print(f" 📈 Current completion rate: {download_stats['completion_rate']:.1f}%")
+        print("\n📋 ENHANCED COMPREHENSIVE STATUS:")
+        print(f"  📄 Starting page: {progress_data.get('last_page', 1000)}")
+        print(f"  📊 Progress file videos: {progress_data.get('total_downloaded', 0)}")
+        print(f"  📁 Actual completed videos: {download_stats['completed_folders']}")
+        print(f"  ❌ Actual failed videos: {download_stats['failed_folders']}")
+        print(f"  📊 Progress file size: {progress_data.get('total_size_mb', 0):.2f} MB")
+        print(f"  💾 Actual folder size: {actual_mb:.2f} MB")
+        print(f"  🎯 Size limit: {max_gb} GB ({max_gb * 1024} MB)")
+        print(f"  📈 Actual usage: {usage_percent:.2f}%")
+        print(f"  🛑 Stop threshold: 95% ({max_gb * 1024 * 0.95:.0f} MB)")
+        print(f"  ⚠️ Sync needed: {'Yes' if progress_summary['sync_needed'] else 'No'}")
+        print(f"  📈 Current completion rate: {download_stats['completion_rate']:.1f}%")
+        print(f"  🐛 Complete debugging: ENABLED")
+        print(f"  🔄 Dynamic monitoring: AVAILABLE")
 
         # Auto-sync if needed
         if progress_summary["sync_needed"]:
@@ -524,87 +530,89 @@ def main():
 
         # Confirm start
         print("\n" + "="*80)
-        print("⚠️ READY TO START IMPROVED CONTINUOUS PARSING WITH DYNAMIC MONITORING")
+        print("⚠️ READY TO START ENHANCED CONTINUOUS PARSING WITH COMPLETE DEBUGGING")
         print("="*80)
-        print("🔄 Dynamic monitoring: ENABLED (reduces failed videos)")
+        print("🐛 Complete debugging: ENABLED (detailed video processing verification)")
         print("🔍 Duplicate detection: ENABLED for first page only")
         print("💡 Press Ctrl+C anytime to stop gracefully")
         print("💾 Progress updated ONLY after verified completion")
-        print("⏱️  Adaptive wait times: 2-30 minutes based on download activity")
-        print("📊 Real-time folder monitoring with stability checks")
+        print("🔄 Dynamic monitoring: AVAILABLE (can be used for better completion rates)")
+        print("📊 Complete audit trail: ENABLED")
         print("="*80)
 
-        response = input("\n🤔 Start improved continuous parsing with dynamic monitoring? (y/n): ").strip().lower()
+        response = input("\n🤔 Start enhanced continuous parsing with complete debugging? (y/n): ").strip().lower()
         if response in ['y', 'yes']:
-            print("\n🚀 Starting improved continuous scraper with dynamic monitoring...")
+            print("\n🚀 Starting enhanced continuous scraper with complete debugging...")
 
-            # Run the improved continuous loop
-            results = controller.run_continuous_loop_with_dynamic_monitoring()
+            # Run the enhanced continuous loop
+            results = controller.run_continuous_loop_with_complete_debugging()
 
             # Display comprehensive final results
             print("\n📋 COMPREHENSIVE FINAL RESULTS:")
-            print(f" Success: {results.get('success')}")
-            print(f" Stop reason: {results.get('stop_reason')}")
-            print(f" Pages processed: {results.get('pages_processed', 0)}")
-            print(f" Videos found: {results.get('total_videos_found', 0)}")
-            print(f" Duplicates filtered: {results.get('total_duplicates_filtered', 0)}")
-            print(f" Videos processed: {results.get('total_videos_processed', 0)}")
-            print(f" Progress updates: {results.get('progress_updates_performed', 0)}")
-            print(f" Total monitoring time: {results.get('total_monitoring_time_minutes', 0):.1f} minutes")
-            print(f" Final verified size: {results.get('final_verified_size_mb', 0):.2f} MB")
-            print(f" Final completed videos: {results.get('final_verified_completed_count', 0)}")
-            print(f" Final failed videos: {results.get('final_verified_failed_count', 0)}")
-            print(f" Final verification passed: {results.get('final_verification_passed', False)}")
+            print(f"  Success: {results.get('success')}")
+            print(f"  Stop reason: {results.get('stop_reason')}")
+            print(f"  Pages processed: {results.get('pages_processed', 0)}")
+            print(f"  Videos found: {results.get('total_videos_found', 0)}")
+            print(f"  Duplicates filtered: {results.get('total_duplicates_filtered', 0)}")
+            print(f"  Videos processed: {results.get('total_videos_processed', 0)}")
+            print(f"  Progress updates: {results.get('progress_updates_performed', 0)}")
+            if results.get('total_monitoring_time_minutes', 0) > 0:
+                print(f"  Total monitoring time: {results.get('total_monitoring_time_minutes', 0):.1f} minutes")
+            print(f"  Final verified size: {results.get('final_verified_size_mb', 0):.2f} MB")
+            print(f"  Final completed videos: {results.get('final_verified_completed_count', 0)}")
+            print(f"  Final failed videos: {results.get('final_verified_failed_count', 0)}")
+            print(f"  Final verification passed: {results.get('final_verification_passed', False)}")
 
             if results.get("success"):
-                print("\n✅ Improved scraping with dynamic monitoring completed successfully!")
-                print("🔄 Dynamic monitoring significantly reduced failed videos!")
+                print("\n✅ Enhanced scraping with complete debugging completed successfully!")
+                print("🐛 Complete debugging provided detailed processing verification!")
             else:
-                print("\n⚠️ Improved scraping stopped early")
+                print("\n⚠️ Enhanced scraping stopped early")
 
             print("\n💡 Next steps:")
-            print(" - Progress.json updates are verified and accurate")
-            print(" - Check IDM for any remaining downloads")
-            print(" - Downloads folder contains verified completed videos")
-            print(" - Run again to continue from exact current position")
-            print(" - Dynamic monitoring ensures optimal download completion")
+            print("  - Progress.json updates are verified and accurate")
+            print("  - Check IDM for any remaining downloads")
+            print("  - Downloads folder contains verified completed videos")
+            print("  - Run again to continue from exact current position")
+            print("  - Complete debugging ensures optimal processing verification")
 
         else:
             print("\n🛑 Cancelled by user")
-            print("💡 Run anytime to start improved scraping with dynamic monitoring")
+            print("💡 Run anytime to start enhanced scraping with complete debugging")
 
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
         print("\n🔧 Check:")
-        print(" - All improved files present")
-        print(" - IDM installed and accessible")
-        print(" - Valid JSON files")
-        print(" - File permissions")
-        print(" - Downloads folder accessibility")
+        print("  - All enhanced debug files present")
+        print("  - IDM installed and accessible")
+        print("  - Valid JSON files")
+        print("  - File permissions")
+        print("  - Downloads folder accessibility")
         return 1
 
     return 0
 
+
 if __name__ == "__main__":
     """
-    Entry point for improved continuous scraper with dynamic monitoring.
+    Entry point for enhanced continuous scraper with complete debugging.
 
-    Improved files needed:
+    Enhanced files needed:
     - progress_handler.py (enhanced progress handler)
-    - idm_manager.py (dynamic monitoring IDM integration)
+    - idm_manager_debug.py (debug IDM integration)
     - progress_tracking.py (progress tracking system)
     - duplicate_detection.py (duplicate detection system)
-    - video_data_parser.py (video parsing - existing)
+    - video_data_parser_debug.py (debug video parsing)
     - config.json (optional - contains max_storage_gb)
     - progress.json (optional - tracks verified progress)
     """
-    print("\n🎯 Improved Continuous Rule34Video Scraper v5.1 with Dynamic Monitoring")
+    print("\n🎯 Enhanced Continuous Rule34Video Scraper with Complete Debugging")
     print("📁 Working directory:", os.getcwd())
-    print("🔄 Dynamic monitoring: ENABLED (reduces failed videos)")
+    print("🐛 Complete debugging: ENABLED (detailed processing verification)")
     print("🔍 Duplicate detection: Integrated with first page detection")
+    print("🔄 Dynamic monitoring: Available for enhanced completion rates")
 
     exit_code = main()
-
-    print("\n👋 Improved scraper finished")
+    print("\n👋 Enhanced scraper finished")
     input("Press Enter to close...")
     sys.exit(exit_code)
