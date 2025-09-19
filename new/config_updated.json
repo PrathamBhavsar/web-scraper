@@ -1,0 +1,57 @@
+{
+  "download_directory": "downloads",
+  "total_download_size": 10240,
+  "batch_pages": 10,
+  "max_retries": 3,
+  "manifest_directory": "manifests",
+  "log_format": "json",
+  "general": {
+    "base_url": "https://rule34video.com",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "download_path": "downloads",
+    "max_storage_gb": 940.0
+  },
+  "batch": {
+    "batch_pages": 10,
+    "batch_initial_wait_seconds": 240,
+    "per_page_idm_wait_seconds": 120,
+    "max_failed_retries_per_page": 3
+  },
+  "processing": {
+    "mode": "direct",
+    "use_parallel": true,
+    "parallel_batch_size": 5,
+    "max_concurrent_downloads": 8,
+    "max_concurrent_videos": 3,
+    "use_parallel_video_processing": true
+  },
+  "scraping": {
+    "wait_time_ms": 3000,
+    "max_retries": 3,
+    "enable_crawl4ai": true
+  },
+  "download": {
+    "download_method": "direct",
+    "max_retries": 5,
+    "chunk_size": 16384,
+    "connect_timeout_seconds": 30,
+    "read_timeout_seconds": 300
+  },
+  "validation": {
+    "required_json_fields": [
+      "video_id",
+      "title",
+      "video_src"
+    ],
+    "min_video_size_bytes": 1024,
+    "min_thumbnail_size_bytes": 100,
+    "validation_delay_seconds": 2
+  },
+  "logging": {
+    "log_level": "INFO",
+    "log_to_file": true,
+    "log_file_path": "scraper.log",
+    "structured_logs": true,
+    "json_log_file": "scraper_structured.log"
+  }
+}
