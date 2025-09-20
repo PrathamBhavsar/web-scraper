@@ -1,0 +1,46 @@
+{
+  "workflow": "parsing_only",
+  "started_at": "2025-09-20T13:58:56.157340",
+  "total_time_seconds": 1519.0183160305023,
+  "requested_start_page": null,
+  "actual_start_page": 9671,
+  "batches_processed": 1,
+  "pages_attempted": 10,
+  "pages_successful": 10,
+  "total_videos_found": 240,
+  "success_rate": 100.0,
+  "batch_results": [
+    {
+      "batch_id": 1,
+      "pages_attempted": [
+        9671,
+        9670,
+        9669,
+        9668,
+        9667,
+        9666,
+        9665,
+        9664,
+        9663,
+        9662
+      ],
+      "successful_pages": [
+        9671,
+        9670,
+        9669,
+        9668,
+        9667,
+        9666,
+        9665,
+        9664,
+        9663,
+        9662
+      ],
+      "failed_pages": [],
+      "total_videos": 240,
+      "batch_time_seconds": 1515.2608137130737,
+      "manifest_path": "manifests\\batch_001_manifest.json",
+      "timestamp": "2025-09-20T13:58:56.156207"
+    }
+  ]
+}

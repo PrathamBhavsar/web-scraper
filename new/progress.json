@@ -1,6 +1,6 @@
 {
   "last_video_id": "",
-  "last_page": 991,
+  "last_page": 9662,
   "total_downloaded": 0,
   "total_size_mb": 0.0,
   "downloaded_videos": [],
@@ -1266,7 +1266,7 @@
       "folder": "E:\\scraper_downloads/page_967/4034807"
     }
   ],
-  "last_updated": "2025-09-20 12:08:41",
+  "last_updated": "2025-09-20 13:58:56",
   "downloaded_size": 0.0,
   "permanent_failed_pages": [
     1000,
@@ -1312,5 +1312,5 @@
     936,
     935
   ],
-  "current_page": 991
+  "current_page": 9662
 }
