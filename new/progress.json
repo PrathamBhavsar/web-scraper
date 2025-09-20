@@ -1,12 +1,1316 @@
 {
   "last_video_id": "",
-  "last_page": 1000,
+  "last_page": 951,
   "total_downloaded": 0,
   "total_size_mb": 0.0,
   "downloaded_videos": [],
-  "failed_videos": [],
-  "last_updated": "2025-09-19 01:28:52",
+  "failed_videos": [
+    {
+      "video_id": "4034715",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034715"
+    },
+    {
+      "video_id": "4034535",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034535"
+    },
+    {
+      "video_id": "4034679",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034679"
+    },
+    {
+      "video_id": "4034655",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034655"
+    },
+    {
+      "video_id": "4034603",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034603"
+    },
+    {
+      "video_id": "dphpz2516",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/dphpz2516"
+    },
+    {
+      "video_id": "4034683",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034683"
+    },
+    {
+      "video_id": "4034659",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034659"
+    },
+    {
+      "video_id": "4034623",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034623"
+    },
+    {
+      "video_id": "4034647",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034647"
+    },
+    {
+      "video_id": "4034643",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034643"
+    },
+    {
+      "video_id": "4034639",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034639"
+    },
+    {
+      "video_id": "4034619",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034619"
+    },
+    {
+      "video_id": "4034635",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034635"
+    },
+    {
+      "video_id": "4034631",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034631"
+    },
+    {
+      "video_id": "4034611",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034611"
+    },
+    {
+      "video_id": "4034607",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034607"
+    },
+    {
+      "video_id": "4034599",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034599"
+    },
+    {
+      "video_id": "4034595",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034595"
+    },
+    {
+      "video_id": "4033947",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4033947"
+    },
+    {
+      "video_id": "4034591",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034591"
+    },
+    {
+      "video_id": "4034583",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034583"
+    },
+    {
+      "video_id": "4034587",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034587"
+    },
+    {
+      "video_id": "4034563",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034563"
+    },
+    {
+      "video_id": "4034571",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034571"
+    },
+    {
+      "video_id": "4034575",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034575"
+    },
+    {
+      "video_id": "4034567",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034567"
+    },
+    {
+      "video_id": "4034559",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034559"
+    },
+    {
+      "video_id": "4034579",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034579"
+    },
+    {
+      "video_id": "4034555",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034555"
+    },
+    {
+      "video_id": "4034551",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034551"
+    },
+    {
+      "video_id": "4034547",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034547"
+    },
+    {
+      "video_id": "4034543",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034543"
+    },
+    {
+      "video_id": "4034527",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034527"
+    },
+    {
+      "video_id": "4034383",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034383"
+    },
+    {
+      "video_id": "4034531",
+      "page": 997,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T13:47:50.901243",
+      "folder": "E:\\scraper_downloads/page_997/4034531"
+    },
+    {
+      "video_id": "4034907",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034907"
+    },
+    {
+      "video_id": "4034887",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034887"
+    },
+    {
+      "video_id": "4034535",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034535"
+    },
+    {
+      "video_id": "4034679",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034679"
+    },
+    {
+      "video_id": "4034655",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034655"
+    },
+    {
+      "video_id": "dphpz1954",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/dphpz1954"
+    },
+    {
+      "video_id": "4034603",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034603"
+    },
+    {
+      "video_id": "4034683",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034683"
+    },
+    {
+      "video_id": "4034659",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034659"
+    },
+    {
+      "video_id": "4034623",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034623"
+    },
+    {
+      "video_id": "4034647",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034647"
+    },
+    {
+      "video_id": "4034643",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034643"
+    },
+    {
+      "video_id": "4034639",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034639"
+    },
+    {
+      "video_id": "4034619",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034619"
+    },
+    {
+      "video_id": "4034635",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034635"
+    },
+    {
+      "video_id": "4034631",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034631"
+    },
+    {
+      "video_id": "4034611",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034611"
+    },
+    {
+      "video_id": "4034607",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034607"
+    },
+    {
+      "video_id": "4034599",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034599"
+    },
+    {
+      "video_id": "4034595",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034595"
+    },
+    {
+      "video_id": "4033947",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4033947"
+    },
+    {
+      "video_id": "4034591",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034591"
+    },
+    {
+      "video_id": "4034583",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034583"
+    },
+    {
+      "video_id": "4034587",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034587"
+    },
+    {
+      "video_id": "4034563",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034563"
+    },
+    {
+      "video_id": "4034571",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034571"
+    },
+    {
+      "video_id": "4034575",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034575"
+    },
+    {
+      "video_id": "4034567",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034567"
+    },
+    {
+      "video_id": "4034559",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034559"
+    },
+    {
+      "video_id": "4034579",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034579"
+    },
+    {
+      "video_id": "4034555",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034555"
+    },
+    {
+      "video_id": "4034551",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034551"
+    },
+    {
+      "video_id": "4034547",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034547"
+    },
+    {
+      "video_id": "4034543",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034543"
+    },
+    {
+      "video_id": "4034527",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034527"
+    },
+    {
+      "video_id": "4034383",
+      "page": 993,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T14:15:13.336085",
+      "folder": "E:\\scraper_downloads/page_993/4034383"
+    },
+    {
+      "video_id": "4034951",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034951"
+    },
+    {
+      "video_id": "4034947",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034947"
+    },
+    {
+      "video_id": "4034943",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034943"
+    },
+    {
+      "video_id": "4034935",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034935"
+    },
+    {
+      "video_id": "4034939",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034939"
+    },
+    {
+      "video_id": "dphpz2516",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/dphpz2516"
+    },
+    {
+      "video_id": "4034931",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034931"
+    },
+    {
+      "video_id": "4034919",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034919"
+    },
+    {
+      "video_id": "4034883",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034883"
+    },
+    {
+      "video_id": "4034899",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034899"
+    },
+    {
+      "video_id": "4034915",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034915"
+    },
+    {
+      "video_id": "4034895",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034895"
+    },
+    {
+      "video_id": "4034911",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034911"
+    },
+    {
+      "video_id": "4034907",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034907"
+    },
+    {
+      "video_id": "4034879",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034879"
+    },
+    {
+      "video_id": "4034903",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034903"
+    },
+    {
+      "video_id": "4034839",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034839"
+    },
+    {
+      "video_id": "4034887",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034887"
+    },
+    {
+      "video_id": "4034843",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034843"
+    },
+    {
+      "video_id": "4034891",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034891"
+    },
+    {
+      "video_id": "4034871",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034871"
+    },
+    {
+      "video_id": "4034863",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034863"
+    },
+    {
+      "video_id": "4034875",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034875"
+    },
+    {
+      "video_id": "4034867",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034867"
+    },
+    {
+      "video_id": "4034859",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034859"
+    },
+    {
+      "video_id": "4034847",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034847"
+    },
+    {
+      "video_id": "4034855",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034855"
+    },
+    {
+      "video_id": "4034831",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034831"
+    },
+    {
+      "video_id": "4034835",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034835"
+    },
+    {
+      "video_id": "4034823",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034823"
+    },
+    {
+      "video_id": "4034791",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034791"
+    },
+    {
+      "video_id": "4034819",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034819"
+    },
+    {
+      "video_id": "4034815",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034815"
+    },
+    {
+      "video_id": "4034807",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034807"
+    },
+    {
+      "video_id": "4034667",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034667"
+    },
+    {
+      "video_id": "4034787",
+      "page": 982,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T15:23:29.321872",
+      "folder": "E:\\scraper_downloads/page_982/4034787"
+    },
+    {
+      "video_id": "4035003",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4035003"
+    },
+    {
+      "video_id": "4034967",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034967"
+    },
+    {
+      "video_id": "4034951",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034951"
+    },
+    {
+      "video_id": "4034947",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034947"
+    },
+    {
+      "video_id": "4034943",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034943"
+    },
+    {
+      "video_id": "dphpz1954",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/dphpz1954"
+    },
+    {
+      "video_id": "4034935",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034935"
+    },
+    {
+      "video_id": "4034939",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034939"
+    },
+    {
+      "video_id": "4034931",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034931"
+    },
+    {
+      "video_id": "4034919",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034919"
+    },
+    {
+      "video_id": "4034883",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034883"
+    },
+    {
+      "video_id": "4034899",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034899"
+    },
+    {
+      "video_id": "4034915",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034915"
+    },
+    {
+      "video_id": "4034895",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034895"
+    },
+    {
+      "video_id": "4034911",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034911"
+    },
+    {
+      "video_id": "4034907",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034907"
+    },
+    {
+      "video_id": "4034879",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034879"
+    },
+    {
+      "video_id": "4034903",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034903"
+    },
+    {
+      "video_id": "4034839",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034839"
+    },
+    {
+      "video_id": "4034887",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034887"
+    },
+    {
+      "video_id": "4034843",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034843"
+    },
+    {
+      "video_id": "4034891",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034891"
+    },
+    {
+      "video_id": "4034871",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034871"
+    },
+    {
+      "video_id": "4034863",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034863"
+    },
+    {
+      "video_id": "4034875",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034875"
+    },
+    {
+      "video_id": "4034867",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034867"
+    },
+    {
+      "video_id": "4034859",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034859"
+    },
+    {
+      "video_id": "4034847",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034847"
+    },
+    {
+      "video_id": "4034855",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034855"
+    },
+    {
+      "video_id": "4034831",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034831"
+    },
+    {
+      "video_id": "4034835",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034835"
+    },
+    {
+      "video_id": "4034823",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034823"
+    },
+    {
+      "video_id": "4034791",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034791"
+    },
+    {
+      "video_id": "4034819",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034819"
+    },
+    {
+      "video_id": "4034815",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034815"
+    },
+    {
+      "video_id": "4034807",
+      "page": 971,
+      "attempts": 2,
+      "last_attempt_ts": "2025-09-18T16:18:54.006266",
+      "folder": "E:\\scraper_downloads/page_971/4034807"
+    },
+    {
+      "video_id": "4035003",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4035003"
+    },
+    {
+      "video_id": "4034967",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034967"
+    },
+    {
+      "video_id": "4034951",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034951"
+    },
+    {
+      "video_id": "4034947",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034947"
+    },
+    {
+      "video_id": "4034943",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034943"
+    },
+    {
+      "video_id": "dphpz1954",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/dphpz1954"
+    },
+    {
+      "video_id": "4034935",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034935"
+    },
+    {
+      "video_id": "4034939",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034939"
+    },
+    {
+      "video_id": "4034931",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034931"
+    },
+    {
+      "video_id": "4034919",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034919"
+    },
+    {
+      "video_id": "4034883",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034883"
+    },
+    {
+      "video_id": "4034899",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034899"
+    },
+    {
+      "video_id": "4034915",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034915"
+    },
+    {
+      "video_id": "4034895",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034895"
+    },
+    {
+      "video_id": "4034911",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034911"
+    },
+    {
+      "video_id": "4034907",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034907"
+    },
+    {
+      "video_id": "4034879",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034879"
+    },
+    {
+      "video_id": "4034903",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034903"
+    },
+    {
+      "video_id": "4034839",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034839"
+    },
+    {
+      "video_id": "4034887",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034887"
+    },
+    {
+      "video_id": "4034843",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034843"
+    },
+    {
+      "video_id": "4034891",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034891"
+    },
+    {
+      "video_id": "4034871",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034871"
+    },
+    {
+      "video_id": "4034863",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034863"
+    },
+    {
+      "video_id": "4034875",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034875"
+    },
+    {
+      "video_id": "4034867",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034867"
+    },
+    {
+      "video_id": "4034859",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034859"
+    },
+    {
+      "video_id": "4034847",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034847"
+    },
+    {
+      "video_id": "4034855",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034855"
+    },
+    {
+      "video_id": "4034831",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034831"
+    },
+    {
+      "video_id": "4034835",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034835"
+    },
+    {
+      "video_id": "4034823",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034823"
+    },
+    {
+      "video_id": "4034791",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034791"
+    },
+    {
+      "video_id": "4034819",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034819"
+    },
+    {
+      "video_id": "4034815",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034815"
+    },
+    {
+      "video_id": "4034807",
+      "page": 967,
+      "attempts": 3,
+      "last_attempt_ts": "2025-09-18T16:46:35.434809",
+      "folder": "E:\\scraper_downloads/page_967/4034807"
+    }
+  ],
+  "last_updated": "2025-09-19 22:01:57",
   "downloaded_size": 0.0,
-  "permanent_failed_pages": [],
-  "current_page": 1000
+  "permanent_failed_pages": [
+    1000,
+    999,
+    998,
+    996,
+    995,
+    994,
+    992,
+    991,
+    990,
+    989,
+    988,
+    987,
+    985,
+    981,
+    979,
+    978,
+    976,
+    973,
+    972,
+    970,
+    968,
+    964,
+    963,
+    962,
+    961,
+    959,
+    958,
+    955,
+    954,
+    953,
+    952,
+    949,
+    948,
+    947,
+    946,
+    943,
+    942,
+    941,
+    940,
+    937,
+    936,
+    935
+  ],
+  "current_page": 951
 }
