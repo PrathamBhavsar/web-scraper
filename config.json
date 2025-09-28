@@ -1,0 +1,24 @@
+{
+  "general": {
+    "base_url": "https://rule34video.com/latest-updates/",
+    "download_path": "downloads",
+    "max_storage_gb": 1,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  },
+  "download": {
+    "download_method": "idm",
+    "idm_path": "C:\\Program Files (x86)\\Internet Download Manager\\idman.exe",
+    "max_retries": 3,
+    "timeout_seconds": 120,
+    "ef2_batch_size": 3
+  },
+  "scraping": {
+    "pages_per_batch": 2,
+    "max_pages": 10,
+    "wait_time_ms": 3000
+  },
+  "logging": {
+    "log_file_path": "logs/scraper.log",
+    "log_level": "INFO"
+  }
+}
