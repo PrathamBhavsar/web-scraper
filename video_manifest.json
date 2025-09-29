@@ -1,7 +1,7 @@
 {
   "manifest_version": "1.0",
   "created_at": "2025-09-27T22:48:12.956586",
-  "last_updated": "2025-09-28T00:06:07.882696",
+  "last_updated": "2025-09-29T12:25:46.466012",
   "total_videos_discovered": 0,
   "videos_by_page": {},
   "video_queue": [],
@@ -245,6 +245,451 @@
     {
       "video_id": "4048482",
       "failed_at": "2025-09-27T22:48:35.827022",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052262",
+      "failed_at": "2025-09-29T11:35:23.847291",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052198",
+      "failed_at": "2025-09-29T11:35:23.848313",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052082",
+      "failed_at": "2025-09-29T11:35:23.953463",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052070",
+      "failed_at": "2025-09-29T11:35:23.956548",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052002",
+      "failed_at": "2025-09-29T11:35:23.956548",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052058",
+      "failed_at": "2025-09-29T11:35:23.962182",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052010",
+      "failed_at": "2025-09-29T11:35:23.964221",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052066",
+      "failed_at": "2025-09-29T11:35:23.965172",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052034",
+      "failed_at": "2025-09-29T11:35:23.967197",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052062",
+      "failed_at": "2025-09-29T11:35:23.970192",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051970",
+      "failed_at": "2025-09-29T11:35:23.972191",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052042",
+      "failed_at": "2025-09-29T11:35:23.975095",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052018",
+      "failed_at": "2025-09-29T11:35:23.978107",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051942",
+      "failed_at": "2025-09-29T11:35:24.086916",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052030",
+      "failed_at": "2025-09-29T11:35:24.088932",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052026",
+      "failed_at": "2025-09-29T11:35:24.090951",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052014",
+      "failed_at": "2025-09-29T11:35:24.093969",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052022",
+      "failed_at": "2025-09-29T11:35:24.102142",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052006",
+      "failed_at": "2025-09-29T11:35:24.208437",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051986",
+      "failed_at": "2025-09-29T11:35:24.208437",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051994",
+      "failed_at": "2025-09-29T11:35:24.213429",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051998",
+      "failed_at": "2025-09-29T11:35:24.214461",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051950",
+      "failed_at": "2025-09-29T11:35:24.216446",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051990",
+      "failed_at": "2025-09-29T11:35:24.217442",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051946",
+      "failed_at": "2025-09-29T11:35:59.377399",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051902",
+      "failed_at": "2025-09-29T11:36:00.597267",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051790",
+      "failed_at": "2025-09-29T11:36:01.814151",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051978",
+      "failed_at": "2025-09-29T11:36:38.587548",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051974",
+      "failed_at": "2025-09-29T11:36:38.589546",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051982",
+      "failed_at": "2025-09-29T11:36:38.590541",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051962",
+      "failed_at": "2025-09-29T11:36:38.592583",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051966",
+      "failed_at": "2025-09-29T11:36:38.593534",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051954",
+      "failed_at": "2025-09-29T11:36:38.596540",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051958",
+      "failed_at": "2025-09-29T11:36:38.598566",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051938",
+      "failed_at": "2025-09-29T11:36:38.599539",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051934",
+      "failed_at": "2025-09-29T11:36:38.601551",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051926",
+      "failed_at": "2025-09-29T11:36:38.604452",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051914",
+      "failed_at": "2025-09-29T11:36:38.607210",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051930",
+      "failed_at": "2025-09-29T11:36:38.608211",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051922",
+      "failed_at": "2025-09-29T11:36:38.610294",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051910",
+      "failed_at": "2025-09-29T11:36:38.678403",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051918",
+      "failed_at": "2025-09-29T11:36:38.681595",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051906",
+      "failed_at": "2025-09-29T11:36:38.684551",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051898",
+      "failed_at": "2025-09-29T11:36:38.685636",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051894",
+      "failed_at": "2025-09-29T11:36:38.687616",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051886",
+      "failed_at": "2025-09-29T11:36:38.690223",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051882",
+      "failed_at": "2025-09-29T11:36:38.763263",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051870",
+      "failed_at": "2025-09-29T11:36:38.763263",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052006",
+      "failed_at": "2025-09-29T11:47:49.985401",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051986",
+      "failed_at": "2025-09-29T11:47:51.000262",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051994",
+      "failed_at": "2025-09-29T11:47:52.121948",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051998",
+      "failed_at": "2025-09-29T11:47:53.127887",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051950",
+      "failed_at": "2025-09-29T11:47:54.208528",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051990",
+      "failed_at": "2025-09-29T11:47:55.198926",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052262",
+      "failed_at": "2025-09-29T11:47:55.245737",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052198",
+      "failed_at": "2025-09-29T11:47:55.247703",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052082",
+      "failed_at": "2025-09-29T11:47:55.250757",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052070",
+      "failed_at": "2025-09-29T11:47:55.252746",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052002",
+      "failed_at": "2025-09-29T11:47:55.254720",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052058",
+      "failed_at": "2025-09-29T11:47:55.257136",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052010",
+      "failed_at": "2025-09-29T11:47:55.274946",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052066",
+      "failed_at": "2025-09-29T11:47:55.302389",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052034",
+      "failed_at": "2025-09-29T11:47:55.305415",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052062",
+      "failed_at": "2025-09-29T11:47:55.307370",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051970",
+      "failed_at": "2025-09-29T11:47:55.310371",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052042",
+      "failed_at": "2025-09-29T11:47:55.354632",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052018",
+      "failed_at": "2025-09-29T11:47:55.358429",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4051942",
+      "failed_at": "2025-09-29T11:47:55.361461",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052030",
+      "failed_at": "2025-09-29T11:47:55.364455",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052026",
+      "failed_at": "2025-09-29T11:47:55.366437",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052014",
+      "failed_at": "2025-09-29T11:47:55.368422",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052022",
+      "failed_at": "2025-09-29T11:47:55.370434",
+      "error": "Failed to queue in IDM"
+    },
+    {
+      "video_id": "4052014",
+      "failed_at": "2025-09-29T11:53:55.828185",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052022",
+      "failed_at": "2025-09-29T11:53:56.815900",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052006",
+      "failed_at": "2025-09-29T11:53:57.881675",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051986",
+      "failed_at": "2025-09-29T11:53:58.887028",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051994",
+      "failed_at": "2025-09-29T11:53:59.943084",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051998",
+      "failed_at": "2025-09-29T11:54:00.933410",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052006",
+      "failed_at": "2025-09-29T12:06:55.100556",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051986",
+      "failed_at": "2025-09-29T12:06:56.087230",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051994",
+      "failed_at": "2025-09-29T12:06:57.120257",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051998",
+      "failed_at": "2025-09-29T12:06:58.114614",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051950",
+      "failed_at": "2025-09-29T12:06:59.110303",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051990",
+      "failed_at": "2025-09-29T12:07:00.101344",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051994",
+      "failed_at": "2025-09-29T12:23:47.305112",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051998",
+      "failed_at": "2025-09-29T12:23:48.329247",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051950",
+      "failed_at": "2025-09-29T12:23:49.300527",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051990",
+      "failed_at": "2025-09-29T12:23:50.317702",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4051910",
+      "failed_at": "2025-09-29T12:25:02.294749",
       "error": "Failed to extract metadata or download URL"
     }
   ]

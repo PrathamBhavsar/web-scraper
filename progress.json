@@ -1,16 +1,16 @@
 {
   "scraper_version": "1.0",
-  "last_run_at": "2025-09-28T00:06:07.883869",
+  "last_run_at": "2025-09-29T12:25:46.495115",
   "current_page": 2,
   "last_scraped_page": 2,
   "total_videos_downloaded": 0,
   "total_size_gb": 0.0,
   "session_stats": {
-    "videos_processed": 120,
+    "videos_processed": 358,
     "videos_completed": 0,
     "videos_failed": 0,
     "session_start": "",
-    "last_activity": "2025-09-28T00:06:07.883878"
+    "last_activity": "2025-09-29T12:25:46.495115"
   },
   "failed_videos": [],
   "completed_videos": []

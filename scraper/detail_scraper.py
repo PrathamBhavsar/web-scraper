@@ -131,10 +131,13 @@ async def extract_complete_metadata(browser, detail_url: str, video_data: dict):
         download_sources = await extract_download_sources(page)
         metadata["download_sources"] = download_sources
         
-        # Set the highest quality video source
+        # Set the highest quality video source and remove &download=true
         if download_sources:
             best_source = max(download_sources, key=lambda x: x.get('quality_score', 0))
-            metadata["video_src"] = best_source["url"]
+            video_url = best_source["url"]
+            # Remove &download=true from the URL
+            video_url = video_url.replace('&download=true', '')
+            metadata["video_src"] = video_url
         
         # Extract description from author info if available
         try:

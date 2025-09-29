@@ -1,8 +1,8 @@
 {
   "general": {
     "base_url": "https://rule34video.com/latest-updates/",
-    "download_path": "downloads",
-    "max_storage_gb": 1,
+    "download_path": "E:\\web-scraper\\downloads",
+    "max_storage_gb": 10,
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
   },
   "download": {
