@@ -10,12 +10,12 @@ from scraper.progress_manager import ProgressManager
 from scraper.manifest_manager import ManifestManager
 from scraper.download_manager import DownloadManager
 from scraper.detail_scraper import extract_complete_metadata as extract_video_data
-from scraper.storage_manager import total_size_gb, cleanup_incomplete_folders
+from scraper.storage_manager import total_size_gb, total_size_mb, cleanup_incomplete_folders, scan_download_folder
 from scraper.validator import basic_mp4_check
 import subprocess
 import psutil
 import aiohttp
-
+# main.py (continued)
 async def save_video_metadata(video, video_folder):
     """Save video metadata with proper video_id naming"""
     try:
@@ -36,8 +36,8 @@ async def fast_batch_scraper(browser, config, start_page, end_page, manifest_man
     """
     Modified batch scraper that decouples metadata extraction from video download
     """
-    # FIX: Use the correct config key for download path
     download_root = Path(config['general']['download_path'])
+    max_storage_gb = config['general'].get('max_storage_gb', 100)
 
     for page_num in range(start_page, end_page + 1):
         print(f"\n[BATCH SCRAPER] Processing page {page_num}")
@@ -123,6 +123,16 @@ async def fast_batch_scraper(browser, config, start_page, end_page, manifest_man
 
         # Update progress for the page
         progress_manager.update_current_page(page_num)
+        
+        # Update total size after processing page
+        current_size_mb = total_size_mb(download_root)
+        progress_manager.update_total_size(current_size_mb)
+        print(f"[BATCH SCRAPER] Current total size: {current_size_mb / 1024:.2f}GB")
+        
+        # Check if we've reached max storage
+        if current_size_mb / 1024 >= max_storage_gb:
+            print(f"[BATCH SCRAPER] Max storage limit ({max_storage_gb}GB) reached. Stopping scraper.")
+            break
 
         # Small delay between pages to avoid overwhelming the server
         await asyncio.sleep(2)
@@ -130,7 +140,6 @@ async def fast_batch_scraper(browser, config, start_page, end_page, manifest_man
     print(f"\n[BATCH SCRAPER] Batch scraping complete. All videos queued for download.")
     print("Note: Videos will continue downloading in IDM. Use cleanup function to check completion status.")
 
-# Additional helper functions that would be needed:
 async def scrape_page_videos(browser, page_num, config):
     """Extract video links from a single page (existing logic)"""
     try:
@@ -138,7 +147,6 @@ async def scrape_page_videos(browser, page_num, config):
         page = await browser.new_page()
 
         # Construct the URL for the specific page
-        # Based on the URL pattern seen in listing_scraper.py: /latest-updates/page_num/
         base_url = config.get('scraping', {}).get('base_url', 'https://rule34video.com')
 
         if page_num == 1:
@@ -167,8 +175,6 @@ def check_downloads_completion(download_root, manifest_manager):
     Check which downloads have completed and update manifest accordingly
     This should be called periodically or at the end of scraping
     """
-    from scraper.storage_manager import scan_download_folder
-
     scan_results = scan_download_folder(download_root)
     updated_count = 0
 
@@ -336,7 +342,7 @@ async def wait_for_idm_pending_and_delay(download_root: Path, logger,
                f"IDM running: {idm_running}. Waiting {interval_minutes} minute(s) "
                f"({total_waited}/{max_wait_minutes} minutes elapsed).")
         logger.info(msg)
-        print(msg)  # keep console output visible as you wanted
+        print(msg)
 
         await asyncio.sleep(interval_minutes * 60)
         total_waited += interval_minutes
@@ -356,61 +362,83 @@ async def run():
         manifest_mgr = ManifestManager()
         download_mgr = DownloadManager(cfg)
 
-        # FIX: Use the correct config key for download path
-        # Use 'download_path' instead of 'download_folder'
         download_root = Path(cfg['general']['download_path'])
         download_root.mkdir(parents=True, exist_ok=True)
+        
+        max_storage_gb = cfg['general'].get('max_storage_gb', 100)
 
         logger.info("[START] STARTING ENHANCED BATCH SCRAPER WITH IDM WAIT LOGIC")
         logger.info(f"[CONFIG] Download path: {cfg['general']['download_path']}")
-        logger.info(f"[CONFIG] Storage limit: {cfg['general']['max_storage_gb']}GB")
+        logger.info(f"[CONFIG] Storage limit: {max_storage_gb}GB")
         logger.info(f"[CONFIG] Pages per batch: {cfg['scraping']['pages_per_batch']}")
         logger.info(f"[CONFIG] Videos per batch: {cfg['download'].get('ef2_batch_size', 5)}")
         logger.info("[STRUCTURE] Expected structure: [video_id]/[video_id].mp4/.json")
 
-        # Initial cleanup - DO NOT WAIT (this is initialization)
-        logger.info("[INITIAL_CLEANUP] Cleaning existing incomplete folders...")
-        initial_cleanup = cleanup_incomplete_folders(download_root, logger)
-        logger.info(f"[INITIAL_CLEANUP] Freed {initial_cleanup['space_freed_mb']:.1f}MB")
+        # Check existing progress and storage on startup
+        current_size_mb = total_size_mb(download_root)
+        current_size_gb = current_size_mb / 1024
+        progress_mgr.update_total_size(current_size_mb)
+        
+        logger.info(f"[STARTUP] Current storage used: {current_size_gb:.2f}GB / {max_storage_gb}GB")
+        
+        if current_size_gb >= max_storage_gb:
+            logger.info(f"[STARTUP] Storage limit already reached ({current_size_gb:.2f}GB >= {max_storage_gb}GB). Skipping parsing.")
+            print(f"[STARTUP] Storage limit already reached. Current: {current_size_gb:.2f}GB, Max: {max_storage_gb}GB")
+            print("[STARTUP] Skipping to validation and cleanup.")
+        else:
+            # Initial cleanup - DO NOT WAIT (this is initialization)
+            logger.info("[INITIAL_CLEANUP] Cleaning existing incomplete folders...")
+            initial_cleanup = cleanup_incomplete_folders(download_root, logger)
+            logger.info(f"[INITIAL_CLEANUP] Freed {initial_cleanup['space_freed_mb']:.1f}MB")
 
-        # Run the batch scraper
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            # Run the batch scraper
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
 
-            await fast_batch_scraper(
-                browser,
-                cfg,
-                1,  # You may want to set start_page dynamically
-                cfg['scraping']['pages_per_batch'],  # You may want to set end_page dynamically
-                manifest_mgr,
-                progress_mgr,
-                download_mgr
-            )
+                await fast_batch_scraper(
+                    browser,
+                    cfg,
+                    1,
+                    cfg['scraping']['pages_per_batch'],
+                    manifest_mgr,
+                    progress_mgr,
+                    download_mgr
+                )
 
-            await browser.close()
+                await browser.close()
 
-        # CRITICAL: Wait for IDM downloads before final cleanup - THIS IS THE FIX
+        # CRITICAL: Wait for IDM downloads before final cleanup
         logger.info("[IDM-WAIT] Scraper finished queueing. Waiting for IDM downloads to complete...")
         print("\n[IDM-WAIT] ========== WAITING FOR IDM DOWNLOADS ==========")
         print("[IDM-WAIT] The scraper will now wait up to 10 minutes for IDM to complete downloads.")
         print("[IDM-WAIT] This prevents deletion of files that are still downloading.")
         print("[IDM-WAIT] =================================================\n")
 
-        # FIXED: Actually call the IDM wait function
         await wait_for_idm_pending_and_delay(
             download_root=download_root,
             logger=logger,
-            max_wait_minutes=10,  # Wait up to 10 minutes total
-            interval_minutes=5    # Check every 5 minutes
+            max_wait_minutes=10,
+            interval_minutes=5
         )
 
         # ONLY AFTER waiting, run final cleanup
         logger.info("[FINAL_CLEANUP] IDM wait completed. Running final validation and cleanup...")
         final_cleanup = cleanup_incomplete_folders(download_root, logger)
 
+        # Scan folder and update final lists in progress.json
+        logger.info("[VALIDATION] Scanning download folder for final validation...")
+        scan_results = scan_download_folder(download_root)
+        
+        completed_ids = scan_results['completed_video_ids']
+        failed_ids = scan_results['failed_video_ids']
+        
+        progress_mgr.update_final_lists(completed_ids, failed_ids)
+        logger.info(f"[VALIDATION] Updated progress.json with {len(completed_ids)} completed and {len(failed_ids)} failed videos")
+
         # Final stats
         final_stats = manifest_mgr.get_queue_statistics()
         final_storage = total_size_gb(download_root)
+        progress_mgr.update_total_size(final_storage * 1024)
 
         logger.info("[COMPLETE] === SCRAPER COMPLETED ===")
         logger.info(f"[STATS] Videos completed: {final_stats['completed']}")

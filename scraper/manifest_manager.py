@@ -1,3 +1,4 @@
+# manifest_manager.py
 import json
 from pathlib import Path
 from datetime import datetime
@@ -107,14 +108,13 @@ class ManifestManager:
         }
     
     def mark_video_completed(self, video_id: str, download_root: Path):
-        """Mark video as completed ONLY if all three files exist"""
+        """Mark video as completed ONLY if all required files exist"""
         video_folder = download_root / video_id
         
-        # Check that all three required files exist and are valid
+        # Check that all required files exist and are valid
         required_files = {
             'video': video_folder / f"{video_id}.mp4",
-            'metadata': video_folder / f"{video_id}.json",
-            'thumbnail': video_folder / f"{video_id}.jpg"
+            'metadata': video_folder / f"{video_id}.json"
         }
         
         files_status = {}
@@ -156,8 +156,7 @@ class ManifestManager:
                 "total_size_mb": total_size_mb,
                 "files": {
                     "video": f"{video_id}.mp4",
-                    "metadata": f"{video_id}.json",
-                    "thumbnail": f"{video_id}.jpg"
+                    "metadata": f"{video_id}.json"
                 },
                 "files_verified": files_status
             }
@@ -226,8 +225,7 @@ class ManifestManager:
             if video_folder.exists():
                 required_files = {
                     'video': video_folder / f"{video_id}.mp4",
-                    'metadata': video_folder / f"{video_id}.json",
-                    'thumbnail': video_folder / f"{video_id}.jpg"
+                    'metadata': video_folder / f"{video_id}.json"
                 }
                 
                 all_files_exist = all(

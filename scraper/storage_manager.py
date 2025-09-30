@@ -1,10 +1,11 @@
+# storage_manager.py
 import json
 import os
 import shutil
 from pathlib import Path
 
-def total_size_gb(folder_path: Path) -> float:
-    """Calculate total size of folder in GB"""
+def total_size_mb(folder_path: Path) -> float:
+    """Calculate total size of folder in MB"""
     try:
         total_size = 0
         for dirpath, dirnames, filenames in os.walk(folder_path):
@@ -12,9 +13,13 @@ def total_size_gb(folder_path: Path) -> float:
                 filepath = os.path.join(dirpath, filename)
                 if os.path.exists(filepath):
                     total_size += os.path.getsize(filepath)
-        return total_size / (1024 ** 3)  # Convert to GB
+        return total_size / (1024 ** 2)  # Convert to MB
     except Exception:
         return 0.0
+
+def total_size_gb(folder_path: Path) -> float:
+    """Calculate total size of folder in GB"""
+    return total_size_mb(folder_path) / 1024
 
 def is_download_in_progress(video_folder: Path, video_id: str) -> bool:
     """Check if video download is currently in progress"""
@@ -54,8 +59,7 @@ def validate_video_folder_structure(video_folder: Path, video_id: str) -> dict:
     """Validate that video folder has the correct structure"""
     expected_files = {
         'video': video_folder / f"{video_id}.mp4",
-        'metadata': video_folder / f"{video_id}.json",
-        'thumbnail': video_folder / f"{video_id}.jpg"
+        'metadata': video_folder / f"{video_id}.json"
     }
     
     validation_results = {
@@ -87,19 +91,15 @@ def validate_video_folder_structure(video_folder: Path, video_id: str) -> dict:
             elif file_type == 'metadata':
                 # Metadata should be valid JSON
                 validation_results['validation_status'][file_type] = _validate_json_file(file_path)
-            elif file_type == 'thumbnail':
-                # Thumbnail should be > 1KB
-                validation_results['validation_status'][file_type] = file_size > 1024
         else:
             validation_results['validation_status'][file_type] = False
     
     validation_results['total_size_mb'] = total_size / (1024 * 1024)
     
-    # Folder is complete if all three files exist and are valid
+    # Folder is complete if all required files exist and are valid
     validation_results['is_complete'] = (
         validation_results['validation_status'].get('video', False) and
-        validation_results['validation_status'].get('metadata', False) and
-        validation_results['validation_status'].get('thumbnail', False)
+        validation_results['validation_status'].get('metadata', False)
     )
     
     return validation_results
@@ -146,19 +146,18 @@ def cleanup_incomplete_folders(download_root: Path, logger=None) -> dict:
                 delete_reason = "empty folder"
                 cleanup_stats['empty_folders_deleted'] += 1
             
-            # Check if folder is incomplete (missing any of the three required files)
+            # Check if folder is incomplete (missing any of the required files)
             elif not validation['is_complete']:
-                # Only delete if we have JSON and thumbnail but missing/invalid video
+                # Only delete if we have JSON but missing/invalid video
                 # This means metadata extraction completed but video download failed/incomplete
                 has_metadata = validation['validation_status'].get('metadata', False)
-                has_thumbnail = validation['validation_status'].get('thumbnail', False)
                 has_valid_video = validation['validation_status'].get('video', False)
                 
-                if has_metadata and has_thumbnail and not has_valid_video:
+                if has_metadata and not has_valid_video:
                     should_delete = True
                     delete_reason = "video download failed or corrupted"
                     cleanup_stats['incomplete_folders_deleted'] += 1
-                elif not has_metadata and not has_thumbnail and not has_valid_video:
+                elif not has_metadata and not has_valid_video:
                     should_delete = True
                     delete_reason = "completely empty/failed folder"
                     cleanup_stats['incomplete_folders_deleted'] += 1
@@ -178,7 +177,7 @@ def cleanup_incomplete_folders(download_root: Path, logger=None) -> dict:
             else:
                 for file_type, is_valid in validation['validation_status'].items():
                     if validation['files_found'][file_type] and not is_valid:
-                        file_extensions = {'video': 'mp4', 'metadata': 'json', 'thumbnail': 'jpg'}
+                        file_extensions = {'video': 'mp4', 'metadata': 'json'}
                         corrupted_file = folder / f"{video_id}.{file_extensions[file_type]}"
                         try:
                             if corrupted_file.exists():
@@ -225,7 +224,9 @@ def scan_download_folder(download_root: Path) -> dict:
         'downloading_videos': 0,
         'invalid_folders': 0,
         'total_size_gb': 0,
-        'folder_details': []
+        'folder_details': [],
+        'completed_video_ids': [],
+        'failed_video_ids': []
     }
     
     try:
@@ -236,6 +237,10 @@ def scan_download_folder(download_root: Path) -> dict:
         for folder in video_folders:
             video_id = folder.name
             
+            # Skip non-numeric folders
+            if not video_id.isdigit():
+                continue
+            
             # Validate folder structure
             validation = validate_video_folder_structure(folder, video_id)
             scan_results['folder_details'].append(validation)
@@ -244,10 +249,13 @@ def scan_download_folder(download_root: Path) -> dict:
                 scan_results['downloading_videos'] += 1
             elif validation['is_complete']:
                 scan_results['complete_videos'] += 1
+                scan_results['completed_video_ids'].append(int(video_id))
             elif any(validation['files_found'].values()):
                 scan_results['incomplete_videos'] += 1
+                scan_results['failed_video_ids'].append(int(video_id))
             else:
                 scan_results['invalid_folders'] += 1
+                scan_results['failed_video_ids'].append(int(video_id))
         
         # Calculate total size
         scan_results['total_size_gb'] = total_size_gb(download_root)
@@ -267,7 +275,7 @@ def print_folder_analysis(download_root: Path):
     print(f"📁 Total folders: {scan_results['total_folders']}")
     print(f"✅ Complete videos: {scan_results['complete_videos']}")
     print(f"⚠️  Incomplete videos: {scan_results['incomplete_videos']}")
-    print(f"⏬ Currently downloading: {scan_results['downloading_videos']}")
+    print(f"⬇ Currently downloading: {scan_results['downloading_videos']}")
     print(f"❌ Invalid folders: {scan_results['invalid_folders']}")
     print(f"💾 Total size: {scan_results['total_size_gb']:.2f} GB")
     
@@ -286,7 +294,7 @@ def print_folder_analysis(download_root: Path):
         for folder in incomplete_examples:
             print(f"  {folder['video_id']}: ", end="")
             status = []
-            for file_type in ['video', 'metadata', 'thumbnail']:
+            for file_type in ['video', 'metadata']:
                 if folder['validation_status'].get(file_type, False):
                     status.append(f"{file_type}✅")
                 else:

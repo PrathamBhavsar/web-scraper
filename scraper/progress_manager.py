@@ -1,7 +1,8 @@
+# progress_manager.py
 import json
 from pathlib import Path
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List
 
 class ProgressManager:
     def __init__(self, progress_file: str = "progress.json"):
@@ -23,7 +24,7 @@ class ProgressManager:
             "current_page": 0,
             "last_scraped_page": 0,
             "total_videos_downloaded": 0,
-            "total_size_gb": 0.0,
+            "total_size_mb": 0.0,
             "session_stats": {
                 "videos_processed": 0,
                 "videos_completed": 0,
@@ -52,15 +53,23 @@ class ProgressManager:
         self.progress_data["last_scraped_page"] = page_num
         self.save_progress()
     
+    def update_total_size(self, total_size_mb: float):
+        """Update total download size in MB"""
+        self.progress_data["total_size_mb"] = total_size_mb
+        self.save_progress()
+    
+    def get_total_size_mb(self) -> float:
+        """Get current total size in MB"""
+        return self.progress_data.get("total_size_mb", 0.0)
+    
     def mark_video_downloaded(self, video_id: str, download_root: Path):
-        """Mark video as successfully downloaded ONLY if all three files exist"""
+        """Mark video as successfully downloaded ONLY if all required files exist"""
         video_folder = download_root / video_id
         
-        # Check that all three required files exist
+        # Check that all required files exist
         required_files = {
             'video': video_folder / f"{video_id}.mp4",
-            'metadata': video_folder / f"{video_id}.json", 
-            'thumbnail': video_folder / f"{video_id}.jpg"
+            'metadata': video_folder / f"{video_id}.json"
         }
         
         all_files_exist = all(file_path.exists() and file_path.stat().st_size > 0 
@@ -77,20 +86,7 @@ class ProgressManager:
         total_size_mb = sum(file_path.stat().st_size for file_path in required_files.values()) / (1024 * 1024)
         
         self.progress_data["total_videos_downloaded"] += 1
-        self.progress_data["total_size_gb"] += total_size_mb / 1024
         self.progress_data["session_stats"]["videos_completed"] += 1
-        
-        self.progress_data["completed_videos"].append({
-            "video_id": video_id,
-            "file_path": str(video_folder),
-            "size_mb": total_size_mb,
-            "completed_at": datetime.now().isoformat(),
-            "files": {
-                "video": f"{video_id}.mp4",
-                "metadata": f"{video_id}.json", 
-                "thumbnail": f"{video_id}.jpg"
-            }
-        })
         
         self.save_progress()
         print(f"[PROGRESS] Marked {video_id} as completed ({total_size_mb:.1f}MB)")
@@ -99,20 +95,18 @@ class ProgressManager:
     def mark_video_failed(self, video_id: str, page: int, error: str = ""):
         """Mark video as failed with retry tracking"""
         self.progress_data["session_stats"]["videos_failed"] += 1
-        
-        self.progress_data["failed_videos"].append({
-            "video_id": video_id,
-            "page": page,
-            "error": error,
-            "failed_at": datetime.now().isoformat()
-        })
-        
         self.save_progress()
         print(f"[PROGRESS] Marked {video_id} as failed: {error}")
     
     def mark_video_processed(self, video_id: str):
         """Mark video as processed (metadata extracted, queued for download)"""
         self.progress_data["session_stats"]["videos_processed"] += 1
+        self.save_progress()
+    
+    def update_final_lists(self, completed_ids: List[int], failed_ids: List[int]):
+        """Update the final completed and failed video lists with integer IDs only"""
+        self.progress_data["completed_videos"] = completed_ids
+        self.progress_data["failed_videos"] = failed_ids
         self.save_progress()
     
     def check_video_completion_status(self, video_id: str, download_root: Path) -> str:
@@ -124,8 +118,7 @@ class ProgressManager:
         
         required_files = {
             'video': video_folder / f"{video_id}.mp4",
-            'metadata': video_folder / f"{video_id}.json",
-            'thumbnail': video_folder / f"{video_id}.jpg"
+            'metadata': video_folder / f"{video_id}.json"
         }
         
         files_status = {
@@ -151,10 +144,10 @@ class ProgressManager:
         }
         
         # Check all videos that were marked as processed
-        completed_videos = [v["video_id"] for v in self.progress_data.get("completed_videos", [])]
+        completed_videos = self.progress_data.get("completed_videos", [])
         
         for video_id in completed_videos:
-            status = self.check_video_completion_status(video_id, download_root)
+            status = self.check_video_completion_status(str(video_id), download_root)
             stats[f"{status}_count"] += 1
         
         return stats
@@ -172,4 +165,4 @@ class ProgressManager:
             return max(1, last_scraped - 1)
         else:
             # First run - start from last page
-            return discovered_last_page 
+            return discovered_last_page
