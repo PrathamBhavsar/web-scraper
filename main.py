@@ -32,7 +32,7 @@ async def save_video_metadata(video, video_folder):
         print(f"Error saving metadata for {video_id}: {e}")
         return False
 
-async def wait_and_validate_page_completion(page_video_ids, download_root, logger, wait_minutes=3):
+async def wait_and_validate_page_completion(page_video_ids, download_root, logger, wait_minutes=2):  # Changed default to 2
     """Wait for downloads and validate all videos from a page are complete"""
     logger.info(f"[PAGE-WAIT] Waiting {wait_minutes} minutes for IDM to complete page downloads...")
     await asyncio.sleep(wait_minutes * 60)
@@ -49,24 +49,19 @@ async def fast_batch_scraper(browser, config, start_page, end_page, manifest_man
     """Modified batch scraper with page-by-page completion tracking"""
     download_root = Path(config['general']['download_path'])
     max_storage_gb = config['general'].get('max_storage_gb', 100)
-    threshold_gb = max_storage_gb * 0.8
 
-    page_num = start_page
+    logger = setup_logger("logs/scraper.log", "INFO")
 
-    while True:
+    for page_num in range(start_page, end_page + 1):
+        logger.info(f"[BATCH SCRAPER] Parsing page {page_num}")
         print(f"\n[BATCH SCRAPER] Processing page {page_num}")
 
         current_size_mb = total_size_mb(download_root)
         current_size_gb = current_size_mb / 1024
-        
-        if current_size_gb >= threshold_gb:
-            print(f"[BATCH SCRAPER] Storage threshold reached before parsing page {page_num}. Stopping.")
-            break
 
         page_videos = await scrape_page_videos(browser, page_num, config)
         if not page_videos:
             print(f"No videos found on page {page_num}")
-            page_num += 1
             continue
 
         page_video_ids = [v['video_id'] for v in page_videos]
@@ -135,8 +130,8 @@ async def fast_batch_scraper(browser, config, start_page, end_page, manifest_man
         completion_result = await wait_and_validate_page_completion(
             page_video_ids, 
             download_root, 
-            setup_logger("logs/scraper.log", "INFO"),
-            wait_minutes=3
+            logger,
+            wait_minutes=2
         )
 
         if completion_result['all_complete']:
@@ -150,14 +145,9 @@ async def fast_batch_scraper(browser, config, start_page, end_page, manifest_man
         current_size_mb = total_size_mb(download_root)
         current_size_gb = current_size_mb / 1024
         progress_manager.update_total_size(current_size_mb)
-        print(f"[BATCH SCRAPER] Current total size: {current_size_gb:.2f}GB / {max_storage_gb}GB (Threshold: {threshold_gb:.2f}GB)")
-        
-        if current_size_gb >= threshold_gb:
-            print(f"[BATCH SCRAPER] Reached 80% storage threshold ({current_size_gb:.2f}GB >= {threshold_gb:.2f}GB). Stopping scraper.")
-            break
+        print(f"[BATCH SCRAPER] Current total size: {current_size_gb:.2f}GB / {max_storage_gb}GB")
 
         await asyncio.sleep(2)
-        page_num += 1
 
     print(f"\n[BATCH SCRAPER] Batch scraping complete. All videos queued for download.")
 
@@ -339,29 +329,40 @@ async def run():
         download_root.mkdir(parents=True, exist_ok=True)
         
         max_storage_gb = cfg['general'].get('max_storage_gb', 100)
-        threshold_gb = max_storage_gb * 0.8
 
         logger.info("[START] STARTING ENHANCED BATCH SCRAPER WITH PAGE COMPLETION TRACKING")
         logger.info(f"[CONFIG] Download path: {cfg['general']['download_path']}")
         logger.info(f"[CONFIG] Storage limit: {max_storage_gb}GB")
-        logger.info(f"[CONFIG] 80% Threshold: {threshold_gb:.2f}GB")
         logger.info(f"[CONFIG] Pages per batch: {cfg['scraping']['pages_per_batch']}")
         logger.info(f"[CONFIG] Videos per batch: {cfg['download'].get('ef2_batch_size', 5)}")
 
         current_size_mb = total_size_mb(download_root)
         current_size_gb = current_size_mb / 1024
         progress_mgr.update_total_size(current_size_mb)
-        
-        last_completed_page = progress_mgr.get_last_completed_page()
-        start_page = last_completed_page + 1
-        
-        logger.info(f"[STARTUP] Last completed page: {last_completed_page}")
+
+        # --- PATCH START ---
+        progress_path = Path("progress.json")
+        if progress_path.exists():
+            last_completed_page = progress_mgr.get_last_completed_page()
+            start_page = last_completed_page + 1
+            logger.info(f"[STARTUP] Found progress.json, last completed page: {last_completed_page}")
+        else:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                logger.info("[STARTUP] progress.json not found, finding last page number from website...")
+                last_page = await find_last_page_number(browser, cfg)
+                start_page = last_page
+                logger.info(f"[STARTUP] No progress.json, starting from last page on site: {last_page}")
+                await browser.close()
+        end_page = start_page + cfg['scraping']['pages_per_batch'] - 1
+        # --- PATCH END ---
+
         logger.info(f"[STARTUP] Resuming from page: {start_page}")
-        logger.info(f"[STARTUP] Current storage used: {current_size_gb:.2f}GB / {max_storage_gb}GB (Threshold: {threshold_gb:.2f}GB)")
+        logger.info(f"[STARTUP] Current storage used: {current_size_gb:.2f}GB / {max_storage_gb}GB")
         
-        if current_size_gb >= threshold_gb:
-            logger.info(f"[STARTUP] Storage threshold already reached ({current_size_gb:.2f}GB >= {threshold_gb:.2f}GB). Skipping parsing.")
-            print(f"[STARTUP] Storage threshold already reached. Current: {current_size_gb:.2f}GB, Threshold: {threshold_gb:.2f}GB")
+        if current_size_gb >= max_storage_gb:
+            logger.info(f"[STARTUP] Storage limit reached ({current_size_gb:.2f}GB >= {max_storage_gb}GB). Skipping parsing.")
+            print(f"[STARTUP] Storage limit reached. Current: {current_size_gb:.2f}GB, Limit: {max_storage_gb}GB")
             print("[STARTUP] Skipping to validation and cleanup.")
         else:
             logger.info("[INITIAL_CLEANUP] Cleaning existing incomplete folders...")
@@ -375,7 +376,7 @@ async def run():
                     browser,
                     cfg,
                     start_page,
-                    cfg['scraping']['pages_per_batch'],
+                    end_page,
                     manifest_mgr,
                     progress_mgr,
                     download_mgr

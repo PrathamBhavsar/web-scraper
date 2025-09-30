@@ -1,17 +1,17 @@
 {
   "scraper_version": "1.0",
-  "last_run_at": "2025-09-30T13:21:13.525141",
-  "current_page": 6,
-  "last_scraped_page": 6,
-  "last_completed_page": 4,
+  "last_run_at": "2025-09-30T14:23:31.501286",
+  "current_page": 1,
+  "last_scraped_page": 1,
+  "last_completed_page": 0,
   "total_videos_downloaded": 0,
-  "total_size_mb": 8866.580739021301,
+  "total_size_mb": 1530.073543548584,
   "session_stats": {
-    "videos_processed": 127,
+    "videos_processed": 47,
     "videos_completed": 0,
     "videos_failed": 0,
     "session_start": "",
-    "last_activity": "2025-09-30T13:21:13.525141"
+    "last_activity": "2025-09-30T14:23:31.501286"
   },
   "failed_videos": [],
   "completed_videos": []
