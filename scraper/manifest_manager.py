@@ -43,7 +43,6 @@ class ManifestManager:
         """Add videos with deduplication and return count of new videos added"""
         page_key = str(page_num)
         
-        # Store videos by page
         self.manifest_data["videos_by_page"][page_key] = {
             "page_number": page_num,
             "video_count": len(video_list),
@@ -51,7 +50,6 @@ class ManifestManager:
             "videos": video_list
         }
         
-        # Add to queue (with deduplication)
         added_count = 0
         existing_ids = {v["video_id"] for v in self.manifest_data["video_queue"]}
         
@@ -111,7 +109,6 @@ class ManifestManager:
         """Mark video as completed ONLY if all required files exist"""
         video_folder = download_root / video_id
         
-        # Check that all required files exist and are valid
         required_files = {
             'video': video_folder / f"{video_id}.mp4",
             'metadata': video_folder / f"{video_id}.json"
@@ -132,10 +129,9 @@ class ManifestManager:
         if not all_files_exist:
             print(f"[MANIFEST] Cannot mark {video_id} as complete - missing files:")
             for file_type, exists in files_status.items():
-                print(f"  {file_type}: {'✅' if exists else '❌'}")
+                print(f"  {file_type}: {'OK' if exists else 'FAIL'}")
             return False
         
-        # Update video status in queue
         for video in self.manifest_data["video_queue"]:
             if video["video_id"] == video_id:
                 video["queue_status"] = "completed"
@@ -147,7 +143,6 @@ class ManifestManager:
                 }
                 break
         
-        # Also add to processed_videos with file verification
         completion_entry = {
             "video_id": video_id,
             "completed_at": datetime.now().isoformat(),
@@ -170,7 +165,6 @@ class ManifestManager:
     
     def mark_video_failed(self, video_id: str, error_message: str):
         """Mark video as failed"""
-        # Update video status in queue
         for video in self.manifest_data["video_queue"]:
             if video["video_id"] == video_id:
                 video["queue_status"] = "failed"
@@ -178,7 +172,6 @@ class ManifestManager:
                 video["error_message"] = error_message
                 break
         
-        # Also add to failed_extractions
         self.manifest_data["failed_extractions"].append({
             "video_id": video_id,
             "failed_at": datetime.now().isoformat(),
@@ -220,7 +213,6 @@ class ManifestManager:
             video_id = video["video_id"]
             current_status = video.get("queue_status", "pending")
             
-            # Check actual file status
             video_folder = download_root / video_id
             if video_folder.exists():
                 required_files = {
@@ -234,14 +226,12 @@ class ManifestManager:
                 )
                 
                 if all_files_exist and current_status != "completed":
-                    # File is complete but not marked as such
                     video["queue_status"] = "completed"
                     video["completed_at"] = datetime.now().isoformat()
                     verification_stats["corrected_statuses"] += 1
                     verification_stats["verified_complete"] += 1
                     
                 elif not all_files_exist and current_status == "completed":
-                    # File is marked complete but actually incomplete
                     video["queue_status"] = "failed"
                     video["failed_at"] = datetime.now().isoformat()
                     video["error_message"] = "Files missing during verification"

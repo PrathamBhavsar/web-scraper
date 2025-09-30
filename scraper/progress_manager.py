@@ -10,7 +10,7 @@ class ProgressManager:
         self.progress_data = self._load_progress()
     
     def _load_progress(self) -> Dict:
-        """Load existing progress or create new structure as per README.md"""
+        """Load existing progress or create new structure"""
         if self.progress_file.exists():
             try:
                 with open(self.progress_file, 'r', encoding='utf-8') as f:
@@ -23,6 +23,7 @@ class ProgressManager:
             "last_run_at": "",
             "current_page": 0,
             "last_scraped_page": 0,
+            "last_completed_page": 0,
             "total_videos_downloaded": 0,
             "total_size_mb": 0.0,
             "session_stats": {
@@ -53,6 +54,16 @@ class ProgressManager:
         self.progress_data["last_scraped_page"] = page_num
         self.save_progress()
     
+    def update_last_completed_page(self, page_num: int):
+        """Update the last page whose videos were fully downloaded and validated"""
+        self.progress_data["last_completed_page"] = page_num
+        self.save_progress()
+        print(f"[PROGRESS] Updated last completed page to {page_num}")
+    
+    def get_last_completed_page(self) -> int:
+        """Get the last page whose videos were fully downloaded"""
+        return self.progress_data.get("last_completed_page", 0)
+    
     def update_total_size(self, total_size_mb: float):
         """Update total download size in MB"""
         self.progress_data["total_size_mb"] = total_size_mb
@@ -66,7 +77,6 @@ class ProgressManager:
         """Mark video as successfully downloaded ONLY if all required files exist"""
         video_folder = download_root / video_id
         
-        # Check that all required files exist
         required_files = {
             'video': video_folder / f"{video_id}.mp4",
             'metadata': video_folder / f"{video_id}.json"
@@ -82,7 +92,6 @@ class ProgressManager:
                 print(f"  {file_type}: {'✅' if exists else '❌'} {file_path}")
             return False
         
-        # Calculate total size of all files
         total_size_mb = sum(file_path.stat().st_size for file_path in required_files.values()) / (1024 * 1024)
         
         self.progress_data["total_videos_downloaded"] += 1
@@ -143,7 +152,6 @@ class ProgressManager:
             "not_started_count": 0
         }
         
-        # Check all videos that were marked as processed
         completed_videos = self.progress_data.get("completed_videos", [])
         
         for video_id in completed_videos:
@@ -158,11 +166,9 @@ class ProgressManager:
     
     def should_resume_from_page(self, discovered_last_page: int) -> int:
         """Determine resume point based on progress and last page"""
-        last_scraped = self.get_last_scraped_page()
+        last_completed = self.get_last_completed_page()
         
-        if last_scraped > 0:
-            # Resume from the page after last scraped
-            return max(1, last_scraped - 1)
+        if last_completed > 0:
+            return last_completed + 1
         else:
-            # First run - start from last page
-            return discovered_last_page
+            return 1

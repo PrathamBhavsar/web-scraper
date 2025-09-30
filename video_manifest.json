@@ -1,10 +1,411 @@
 {
   "manifest_version": "1.0",
-  "created_at": "2025-09-30T22:43:52.035976",
-  "last_updated": "2025-09-30T22:48:43.193901",
+  "created_at": "2025-09-30T11:00:38.891839",
+  "last_updated": "2025-09-30T13:18:12.821767",
   "total_videos_discovered": 0,
   "videos_by_page": {},
   "video_queue": [],
   "processed_videos": [],
-  "failed_extractions": []
+  "failed_extractions": [
+    {
+      "video_id": "4053810",
+      "failed_at": "2025-09-30T11:01:48.674835",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053806",
+      "failed_at": "2025-09-30T11:01:49.819721",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053802",
+      "failed_at": "2025-09-30T11:01:50.915992",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053794",
+      "failed_at": "2025-09-30T11:01:51.986194",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053614",
+      "failed_at": "2025-09-30T11:04:59.683579",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053618",
+      "failed_at": "2025-09-30T11:05:00.896204",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053474",
+      "failed_at": "2025-09-30T11:06:58.220322",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053482",
+      "failed_at": "2025-09-30T11:06:59.357476",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053470",
+      "failed_at": "2025-09-30T11:07:00.445514",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053466",
+      "failed_at": "2025-09-30T11:07:01.533961",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052562",
+      "failed_at": "2025-09-30T11:11:46.475237",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052350",
+      "failed_at": "2025-09-30T11:11:47.623924",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052534",
+      "failed_at": "2025-09-30T11:11:48.801105",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052526",
+      "failed_at": "2025-09-30T11:11:49.861441",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052530",
+      "failed_at": "2025-09-30T11:11:50.991466",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052514",
+      "failed_at": "2025-09-30T11:11:52.013135",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052518",
+      "failed_at": "2025-09-30T11:11:53.026967",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052522",
+      "failed_at": "2025-09-30T11:11:54.170396",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052862",
+      "failed_at": "2025-09-30T11:14:50.778058",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052930",
+      "failed_at": "2025-09-30T11:14:51.909032",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052922",
+      "failed_at": "2025-09-30T11:14:53.037734",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052926",
+      "failed_at": "2025-09-30T11:14:54.126432",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052894",
+      "failed_at": "2025-09-30T11:14:55.234731",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052818",
+      "failed_at": "2025-09-30T11:14:56.207517",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052918",
+      "failed_at": "2025-09-30T11:14:57.292743",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052606",
+      "failed_at": "2025-09-30T11:17:57.285871",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052610",
+      "failed_at": "2025-09-30T11:17:58.533850",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052590",
+      "failed_at": "2025-09-30T11:17:59.693082",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052586",
+      "failed_at": "2025-09-30T11:18:00.787826",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052582",
+      "failed_at": "2025-09-30T11:18:01.811460",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053818",
+      "failed_at": "2025-09-30T11:59:54.368890",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053822",
+      "failed_at": "2025-09-30T11:59:55.467697",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053814",
+      "failed_at": "2025-09-30T11:59:56.594456",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053810",
+      "failed_at": "2025-09-30T11:59:57.743740",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053806",
+      "failed_at": "2025-09-30T11:59:58.843362",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053802",
+      "failed_at": "2025-09-30T12:00:00.098330",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053794",
+      "failed_at": "2025-09-30T12:00:01.222491",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053614",
+      "failed_at": "2025-09-30T12:08:57.323469",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053618",
+      "failed_at": "2025-09-30T12:08:58.405694",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053610",
+      "failed_at": "2025-09-30T12:08:59.531877",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053602",
+      "failed_at": "2025-09-30T12:09:00.582885",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053598",
+      "failed_at": "2025-09-30T12:09:01.638932",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053250",
+      "failed_at": "2025-09-30T12:22:51.972320",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053246",
+      "failed_at": "2025-09-30T12:22:53.085561",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053242",
+      "failed_at": "2025-09-30T12:22:54.117318",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053238",
+      "failed_at": "2025-09-30T12:22:55.213902",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053234",
+      "failed_at": "2025-09-30T12:22:56.253966",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053222",
+      "failed_at": "2025-09-30T12:22:57.262199",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053218",
+      "failed_at": "2025-09-30T12:22:58.240834",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053046",
+      "failed_at": "2025-09-30T12:31:51.788899",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053034",
+      "failed_at": "2025-09-30T12:31:52.880023",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053030",
+      "failed_at": "2025-09-30T12:31:53.982009",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053018",
+      "failed_at": "2025-09-30T12:31:55.075398",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053026",
+      "failed_at": "2025-09-30T12:31:56.111700",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053022",
+      "failed_at": "2025-09-30T12:31:57.360057",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053014",
+      "failed_at": "2025-09-30T12:31:58.421378",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052802",
+      "failed_at": "2025-09-30T12:40:53.996305",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052830",
+      "failed_at": "2025-09-30T12:40:55.230455",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052814",
+      "failed_at": "2025-09-30T12:40:56.361077",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052694",
+      "failed_at": "2025-09-30T12:40:57.431499",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052806",
+      "failed_at": "2025-09-30T12:40:58.506117",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052810",
+      "failed_at": "2025-09-30T12:40:59.609824",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4052794",
+      "failed_at": "2025-09-30T12:41:00.612812",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053818",
+      "failed_at": "2025-09-30T12:54:52.854467",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053822",
+      "failed_at": "2025-09-30T12:54:53.905345",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053814",
+      "failed_at": "2025-09-30T12:54:55.030654",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053810",
+      "failed_at": "2025-09-30T12:54:56.088315",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053806",
+      "failed_at": "2025-09-30T12:54:57.083558",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053802",
+      "failed_at": "2025-09-30T12:54:58.134086",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053794",
+      "failed_at": "2025-09-30T12:54:59.111047",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053618",
+      "failed_at": "2025-09-30T13:03:57.082046",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053610",
+      "failed_at": "2025-09-30T13:03:58.147997",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053602",
+      "failed_at": "2025-09-30T13:03:59.255795",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053598",
+      "failed_at": "2025-09-30T13:04:00.432840",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053574",
+      "failed_at": "2025-09-30T13:04:01.476555",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053242",
+      "failed_at": "2025-09-30T13:17:50.465587",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053238",
+      "failed_at": "2025-09-30T13:17:51.539348",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053234",
+      "failed_at": "2025-09-30T13:17:52.598191",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053222",
+      "failed_at": "2025-09-30T13:17:53.686597",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4053218",
+      "failed_at": "2025-09-30T13:17:54.715824",
+      "error": "Failed to extract metadata or download URL"
+    }
+  ]
 }
