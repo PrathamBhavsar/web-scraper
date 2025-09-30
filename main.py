@@ -16,24 +16,6 @@ import subprocess
 import psutil
 import aiohttp
 
-async def download_video_thumbnail(video, video_folder):
-    """Download video thumbnail with proper video_id naming"""
-    try:
-        thumbnail_url = video.get('thumbnail_src', '')
-        video_id = video.get('video_id', 'unknown')
-
-        if thumbnail_url:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(thumbnail_url) as resp:
-                    if resp.status == 200:
-                        thumbnail_path = video_folder / f"{video_id}.jpg"
-                        with open(thumbnail_path, 'wb') as f:
-                            f.write(await resp.read())
-                        return True
-    except Exception as e:
-        print(f"Failed to download thumbnail for {video_id}: {e}")
-        return False
-
 async def save_video_metadata(video, video_folder):
     """Save video metadata with proper video_id naming"""
     try:
@@ -83,25 +65,22 @@ async def fast_batch_scraper(browser, config, start_page, end_page, manifest_man
                 print(f"Error extracting metadata for {video['video_id']}: {e}")
                 manifest_manager.mark_video_failed(video['video_id'], str(e))
 
-        # Step 3: IMMEDIATELY save JSON metadata and download thumbnails
-        print(f"[BATCH SCRAPER] Saving metadata and thumbnails for {len(videos_with_metadata)} videos...")
+        # Step 3: IMMEDIATELY save JSON metadata
+        print(f"[BATCH SCRAPER] Saving metadata for {len(videos_with_metadata)} videos...")
         for video in videos_with_metadata:
             try:
                 # Save JSON metadata immediately
                 await download_manager.save_video_metadata(video, download_root)
 
-                # Download thumbnail immediately
-                await download_manager.download_video_thumbnail(video, download_root)
-
                 # Mark as processed (metadata extraction complete)
                 progress_manager.mark_video_processed(video['video_id'])
-                print(f"[BATCH SCRAPER] Metadata and thumbnail saved for {video['video_id']}")
+                print(f"[BATCH SCRAPER] Metadata saved for {video['video_id']}")
             except Exception as e:
-                print(f"Error saving metadata/thumbnail for {video['video_id']}: {e}")
+                print(f"Error saving metadata for {video['video_id']}: {e}")
                 manifest_manager.mark_video_failed(video['video_id'], f"Failed to save metadata: {e}")
 
         # Step 4: Queue ALL video downloads in IDM without waiting (BATCH MODE)
-        print(f"[BATCH SCRAPER] Batch queuing {len(videos_with_metadata)} videos and thumbnails...")
+        print(f"[BATCH SCRAPER] Batch queuing {len(videos_with_metadata)} videos...")
         try:
             # Use batch queueing for better efficiency
             batch_success = await download_manager.add_batch_to_queue(videos_with_metadata, download_root)
@@ -265,8 +244,7 @@ async def download_single_video_complete(video, download_root, logger, manifest_
                 manifest_mgr.mark_video_completed(video_id, {
                     "file_path": str(video_path),
                     "file_size_mb": file_size_mb,
-                    "download_method": method_used,
-                    "has_thumbnail": (video_folder / f"{video_id}.jpg").exists()
+                    "download_method": method_used
                 })
 
                 progress_mgr.mark_video_downloaded(video_id, str(video_path), file_size_mb)
@@ -388,7 +366,7 @@ async def run():
         logger.info(f"[CONFIG] Storage limit: {cfg['general']['max_storage_gb']}GB")
         logger.info(f"[CONFIG] Pages per batch: {cfg['scraping']['pages_per_batch']}")
         logger.info(f"[CONFIG] Videos per batch: {cfg['download'].get('ef2_batch_size', 5)}")
-        logger.info("[STRUCTURE] Expected structure: [video_id]/[video_id].mp4/.json/.jpg")
+        logger.info("[STRUCTURE] Expected structure: [video_id]/[video_id].mp4/.json")
 
         # Initial cleanup - DO NOT WAIT (this is initialization)
         logger.info("[INITIAL_CLEANUP] Cleaning existing incomplete folders...")

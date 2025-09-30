@@ -1,3 +1,13 @@
 .venv/
 downloads
 logs
+scraper/__pycache__/__init__.cpython-313.pyc
+scraper/__pycache__/config_loader.cpython-313.pyc
+scraper/__pycache__/detail_scraper.cpython-313.pyc
+scraper/__pycache__/download_manager.cpython-313.pyc
+scraper/__pycache__/listing_scraper.cpython-313.pyc
+scraper/__pycache__/logger.cpython-313.pyc
+scraper/__pycache__/manifest_manager.cpython-313.pyc
+scraper/__pycache__/progress_manager.cpython-313.pyc
+scraper/__pycache__/storage_manager.cpython-313.pyc
+scraper/__pycache__/validator.cpython-313.pyc
