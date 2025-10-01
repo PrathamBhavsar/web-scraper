@@ -1,40 +1,18 @@
 {
   "scraper_version": "1.0",
-  "last_run_at": "2025-10-01T09:26:04.911573",
-  "current_page": 2,
-  "last_scraped_page": 2,
-  "last_completed_page": 2,
+  "last_run_at": "2025-10-01T12:30:39.890458",
+  "current_page": 9817,
+  "last_scraped_page": 9817,
+  "last_completed_page": 9817,
   "total_videos_downloaded": 0,
-  "total_size_mb": 3238.2061920166016,
+  "total_size_mb": 922.3650398254395,
   "session_stats": {
-    "videos_processed": 93,
+    "videos_processed": 51,
     "videos_completed": 0,
     "videos_failed": 0,
     "session_start": "",
-    "last_activity": "2025-10-01T09:26:04.911573"
+    "last_activity": "2025-10-01T12:30:39.890458"
   },
   "failed_videos": [],
-  "completed_videos": [
-    4054874,
-    4054882,
-    4054894,
-    4054898,
-    4054902,
-    4054910,
-    4054914,
-    4054918,
-    4054922,
-    4054926,
-    4054930,
-    4054934,
-    4054938,
-    4054942,
-    4054946,
-    4054950,
-    4054962,
-    4054966,
-    4054974,
-    4054978,
-    4054982
-  ]
+  "completed_videos": []
 }

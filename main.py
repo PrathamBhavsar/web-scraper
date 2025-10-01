@@ -270,20 +270,22 @@ async def run():
                 start_page = last_scraped_page
                 logger.info(f"STARTUP: Found progress.json, last scraped page: {last_scraped_page}")
             else:
+                # Progress file exists but is empty/invalid - discover last page
                 async with async_playwright() as p:
                     browser = await p.chromium.launch(headless=True)
                     page = await browser.new_page(user_agent=cfg['general']['user_agent'])
                     discovered_last_page = await find_last_page_number(page, cfg['general']['base_url'])
                     start_page = discovered_last_page
-                    logger.info(f"STARTUP: progress.json empty, discovered last page: {discovered_last_page}")
+                    logger.info(f"STARTUP: progress.json empty, discovered last page from website: {discovered_last_page}")
                     await browser.close()
         else:
+            # No progress file - discover last page from website
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=True)
                 page = await browser.new_page(user_agent=cfg['general']['user_agent'])
                 discovered_last_page = await find_last_page_number(page, cfg['general']['base_url'])
                 start_page = discovered_last_page
-                logger.info(f"STARTUP: No progress.json, discovered last page: {discovered_last_page}")
+                logger.info(f"STARTUP: No progress.json found, discovered last page from website: {discovered_last_page}")
                 await browser.close()
 
         logger.info(f"STARTUP: Starting from page {start_page}")
