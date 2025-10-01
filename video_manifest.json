@@ -1,16 +1,266 @@
 {
   "manifest_version": "1.0",
-  "created_at": "2025-09-30T14:18:31.486675",
-  "last_updated": "2025-09-30T14:23:31.149733",
+  "created_at": "2025-09-30T20:17:10.924404",
+  "last_updated": "2025-10-01T09:24:04.318950",
   "total_videos_discovered": 0,
   "videos_by_page": {},
   "video_queue": [],
   "processed_videos": [],
   "failed_extractions": [
     {
-      "video_id": "4054126",
-      "failed_at": "2025-09-30T14:19:52.023435",
+      "video_id": "4054906",
+      "failed_at": "2025-10-01T08:41:53.277938",
       "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4054866",
+      "failed_at": "2025-10-01T08:41:54.326657",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4054890",
+      "failed_at": "2025-10-01T08:41:55.486872",
+      "error": "Failed to extract metadata or download URL"
+    },
+    {
+      "video_id": "4054982",
+      "failed_at": "2025-10-01T08:56:35.444677",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054950",
+      "failed_at": "2025-10-01T08:56:37.919820",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054978",
+      "failed_at": "2025-10-01T08:56:40.437411",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054974",
+      "failed_at": "2025-10-01T08:56:44.580751",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054966",
+      "failed_at": "2025-10-01T08:56:47.575973",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054962",
+      "failed_at": "2025-10-01T08:56:50.558955",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054946",
+      "failed_at": "2025-10-01T08:56:53.881403",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054930",
+      "failed_at": "2025-10-01T08:56:56.598715",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054942",
+      "failed_at": "2025-10-01T08:56:59.261480",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054938",
+      "failed_at": "2025-10-01T08:57:01.916735",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054934",
+      "failed_at": "2025-10-01T08:57:04.543626",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054922",
+      "failed_at": "2025-10-01T08:57:07.298079",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054918",
+      "failed_at": "2025-10-01T08:57:09.993782",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054914",
+      "failed_at": "2025-10-01T08:57:12.674216",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054926",
+      "failed_at": "2025-10-01T08:57:15.419524",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054874",
+      "failed_at": "2025-10-01T08:57:18.215429",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054902",
+      "failed_at": "2025-10-01T08:57:21.345178",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054898",
+      "failed_at": "2025-10-01T08:57:24.631734",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054882",
+      "failed_at": "2025-10-01T08:57:28.570873",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054894",
+      "failed_at": "2025-10-01T08:57:31.885178",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054910",
+      "failed_at": "2025-10-01T08:57:34.638699",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054906",
+      "failed_at": "2025-10-01T08:57:37.490344",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054866",
+      "failed_at": "2025-10-01T08:57:40.489701",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054890",
+      "failed_at": "2025-10-01T08:57:43.039729",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054982",
+      "failed_at": "2025-10-01T09:07:14.177520",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054950",
+      "failed_at": "2025-10-01T09:07:16.567516",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054978",
+      "failed_at": "2025-10-01T09:07:18.981515",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054974",
+      "failed_at": "2025-10-01T09:07:22.790704",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054966",
+      "failed_at": "2025-10-01T09:07:25.445210",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054962",
+      "failed_at": "2025-10-01T09:07:28.211004",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054946",
+      "failed_at": "2025-10-01T09:07:31.481298",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054930",
+      "failed_at": "2025-10-01T09:07:34.098138",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054942",
+      "failed_at": "2025-10-01T09:07:37.194158",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054938",
+      "failed_at": "2025-10-01T09:07:40.029974",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054934",
+      "failed_at": "2025-10-01T09:07:42.550510",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054922",
+      "failed_at": "2025-10-01T09:07:45.588094",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054918",
+      "failed_at": "2025-10-01T09:07:48.254608",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054914",
+      "failed_at": "2025-10-01T09:07:50.882539",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054926",
+      "failed_at": "2025-10-01T09:07:53.487487",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054874",
+      "failed_at": "2025-10-01T09:07:55.913277",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054902",
+      "failed_at": "2025-10-01T09:07:57.267387",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'upload_date', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054898",
+      "failed_at": "2025-10-01T09:07:58.562074",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'upload_date', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054882",
+      "failed_at": "2025-10-01T09:08:00.010516",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'upload_date', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054894",
+      "failed_at": "2025-10-01T09:08:01.293512",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'upload_date', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054910",
+      "failed_at": "2025-10-01T09:08:04.023491",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054906",
+      "failed_at": "2025-10-01T09:08:06.765292",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054866",
+      "failed_at": "2025-10-01T09:08:09.711892",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
+    },
+    {
+      "video_id": "4054890",
+      "failed_at": "2025-10-01T09:08:12.649713",
+      "error": "Metadata extraction failed: no video_src/download URL found; found fields: ['video_id', 'url', 'title', 'duration', 'views', 'upload_date', 'tags', 'thumbnail_src', 'uploaded_by', 'description']; download_sources count: 0"
     }
   ]
 }
